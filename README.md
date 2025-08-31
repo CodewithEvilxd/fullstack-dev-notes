@@ -8,12 +8,12 @@
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
 
-[![GitHub stars](https://img.shields.io/github/stars/codewithevilxd/C-notes-main?style=social)](https://github.com/codewithevilxd/C-notes-main)
-[![GitHub forks](https://img.shields.io/github/forks/codewithevilxd/C-notes-main?style=social)](https://github.com/codewithevilxd/C-notes-main/fork)
-[![GitHub issues](https://img.shields.io/github/issues/codewithevilxd/C-notes-main)](https://github.com/codewithevilxd/C-notes-main/issues)
-[![GitHub PRs](https://img.shields.io/github/issues-pr/codewithevilxd/C-notes-main)](https://github.com/codewithevilxd/C-notes-main/pulls)
-[![GitHub contributors](https://img.shields.io/github/contributors/codewithevilxd/C-notes-main)](https://github.com/codewithevilxd/C-notes-main/graphs/contributors)
-[![GitHub last commit](https://img.shields.io/github/last-commit/codewithevilxd/C-notes-main)](https://github.com/codewithevilxd/C-notes-main/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/codewithevilxd/fullstack-dev-notes?style=social)](https://github.com/codewithevilxd/fullstack-dev-notes)
+[![GitHub forks](https://img.shields.io/github/forks/codewithevilxd/fullstack-dev-notes?style=social)](https://github.com/codewithevilxd/fullstack-dev-notes/fork)
+[![GitHub issues](https://img.shields.io/github/issues/codewithevilxd/fullstack-dev-notes)](https://github.com/codewithevilxd/fullstack-dev-notes/issues)
+[![GitHub PRs](https://img.shields.io/github/issues-pr/codewithevilxd/fullstack-dev-notes)](https://github.com/codewithevilxd/fullstack-dev-notes/pulls)
+[![GitHub contributors](https://img.shields.io/github/contributors/codewithevilxd/fullstack-dev-notes)](https://github.com/codewithevilxd/fullstack-dev-notes/graphs/contributors)
+[![GitHub last commit](https://img.shields.io/github/last-commit/codewithevilxd/fullstack-dev-notes)](https://github.com/codewithevilxd/fullstack-dev-notes/commits/main)
 
 **Created by Raj (GitHub: [@codewithevilxd](https://github.com/codewithevilxd))**
 
@@ -33,13 +33,13 @@
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| 📁 **Repository Size** | ![GitHub repo size](https://img.shields.io/github/repo-size/codewithevilxd/C-notes-main?style=flat-square) | Comprehensive content volume |
-| 📅 **Last Updated** | ![GitHub last commit](https://img.shields.io/github/last-commit/codewithevilxd/C-notes-main?style=flat-square) | Fresh, up-to-date content |
-| 👥 **Contributors** | ![GitHub contributors](https://img.shields.io/github/contributors/codewithevilxd/C-notes-main?style=flat-square) | Community collaboration |
-| ⭐ **Stars** | ![GitHub stars](https://img.shields.io/github/stars/codewithevilxd/C-notes-main?style=flat-square) | Community appreciation |
-| 🍴 **Forks** | ![GitHub forks](https://img.shields.io/github/forks/codewithevilxd/C-notes-main?style=flat-square) | Knowledge sharing |
-| 🐛 **Open Issues** | ![GitHub issues](https://img.shields.io/github/issues/codewithevilxd/C-notes-main?style=flat-square) | Active development |
-| 🔄 **Pull Requests** | ![GitHub PRs](https://img.shields.io/github/issues-pr/codewithevilxd/C-notes-main?style=flat-square) | Community contributions |
+| 📁 **Repository Size** | ![GitHub repo size](https://img.shields.io/github/repo-size/codewithevilxd/fullstack-dev-notes?style=flat-square) | Comprehensive content volume |
+| 📅 **Last Updated** | ![GitHub last commit](https://img.shields.io/github/last-commit/codewithevilxd/fullstack-dev-notes?style=flat-square) | Fresh, up-to-date content |
+| 👥 **Contributors** | ![GitHub contributors](https://img.shields.io/github/contributors/codewithevilxd/fullstack-dev-notes?style=flat-square) | Community collaboration |
+| ⭐ **Stars** | ![GitHub stars](https://img.shields.io/github/stars/codewithevilxd/fullstack-dev-notes?style=flat-square) | Community appreciation |
+| 🍴 **Forks** | ![GitHub forks](https://img.shields.io/github/forks/codewithevilxd/fullstack-dev-notes?style=flat-square) | Knowledge sharing |
+| 🐛 **Open Issues** | ![GitHub issues](https://img.shields.io/github/issues/codewithevilxd/fullstack-dev-notes?style=flat-square) | Active development |
+| 🔄 **Pull Requests** | ![GitHub PRs](https://img.shields.io/github/issues-pr/codewithevilxd/fullstack-dev-notes?style=flat-square) | Community contributions |
 
 ### 🎯 **Content Quality Metrics**
 
@@ -126,7 +126,7 @@ Overall:        ████████████████████ 100
 
 </div>
 
----
+----
 
 ## 🏆 **Featured Projects & Examples**
 
