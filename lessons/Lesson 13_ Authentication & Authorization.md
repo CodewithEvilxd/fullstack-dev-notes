@@ -1278,3 +1278,1008 @@ In the next lesson, we'll explore testing methodologies for full-stack applicati
 - Testing best practices
 
 Practice implementing authentication in your applications and experiment with different authorization patterns!
+
+## **14. Advanced Authentication Patterns and Security**
+
+### **JWT Token Management and Security**
+
+#### **Advanced JWT Implementation with Refresh Tokens**
+```javascript
+const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+
+// JWT Manager class for advanced token handling
+class JWTManager {
+  constructor() {
+    this.accessTokenSecret = process.env.JWT_ACCESS_SECRET;
+    this.refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
+    this.accessTokenExpiry = '15m';
+    this.refreshTokenExpiry = '7d';
+  }
+
+  // Generate access token with enhanced claims
+  generateAccessToken(payload) {
+    const enhancedPayload = {
+      ...payload,
+      iat: Math.floor(Date.now() / 1000),
+      iss: 'your-app-name',
+      aud: 'your-app-audience',
+      jti: crypto.randomUUID() // Unique token ID for tracking
+    };
+
+    return jwt.sign(enhancedPayload, this.accessTokenSecret, {
+      expiresIn: this.accessTokenExpiry,
+      algorithm: 'HS256'
+    });
+  }
+
+  // Generate refresh token with rotation
+  generateRefreshToken(payload) {
+    const refreshPayload = {
+      userId: payload.userId,
+      tokenVersion: payload.tokenVersion || 1,
+      jti: crypto.randomUUID()
+    };
+
+    return jwt.sign(refreshPayload, this.refreshTokenSecret, {
+      expiresIn: this.refreshTokenExpiry,
+      algorithm: 'HS256'
+    });
+  }
+
+  // Generate token pair
+  generateTokenPair(user) {
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions || [],
+      tokenVersion: user.tokenVersion || 1
+    };
+
+    const accessToken = this.generateAccessToken(payload);
+    const refreshToken = this.generateRefreshToken(payload);
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60 * 1000, // 15 minutes in milliseconds
+      tokenType: 'Bearer'
+    };
+  }
+
+  // Verify access token with enhanced validation
+  verifyAccessToken(token) {
+    try {
+      const decoded = jwt.verify(token, this.accessTokenSecret, {
+        issuer: 'your-app-name',
+        audience: 'your-app-audience',
+        algorithms: ['HS256']
+      });
+
+      // Check if token is blacklisted (for logout scenarios)
+      if (this.isTokenBlacklisted(decoded.jti)) {
+        throw new Error('Token has been revoked');
+      }
+
+      return decoded;
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        throw new Error('Access token expired');
+      } else if (error.name === 'JsonWebTokenError') {
+        throw new Error('Invalid access token');
+      }
+      throw error;
+    }
+  }
+
+  // Verify refresh token
+  verifyRefreshToken(token) {
+    try {
+      return jwt.verify(token, this.refreshTokenSecret, {
+        algorithms: ['HS256']
+      });
+    } catch (error) {
+      throw new Error('Invalid refresh token');
+    }
+  }
+
+  // Token rotation for enhanced security
+  async rotateTokens(refreshToken, user) {
+    // Verify refresh token
+    const decoded = this.verifyRefreshToken(refreshToken);
+
+    // Check if refresh token exists in database and matches user
+    const storedToken = await RefreshToken.findOne({
+      userId: decoded.userId,
+      tokenHash: crypto.createHash('sha256').update(refreshToken).digest('hex'),
+      revoked: false
+    });
+
+    if (!storedToken) {
+      throw new Error('Refresh token not found or revoked');
+    }
+
+    // Revoke old refresh token
+    storedToken.revoked = true;
+    await storedToken.save();
+
+    // Generate new token pair
+    const tokens = this.generateTokenPair(user);
+
+    // Store new refresh token
+    const newRefreshTokenHash = crypto.createHash('sha256')
+      .update(tokens.refreshToken)
+      .digest('hex');
+
+    await RefreshToken.create({
+      userId: user.id,
+      tokenHash: newRefreshTokenHash,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    });
+
+    return tokens;
+  }
+
+  // Blacklist token (for immediate logout)
+  async blacklistToken(tokenId) {
+    // Store in Redis or database for quick lookup
+    await TokenBlacklist.create({
+      tokenId,
+      blacklistedAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    });
+  }
+
+  // Check if token is blacklisted
+  async isTokenBlacklisted(tokenId) {
+    const blacklisted = await TokenBlacklist.findOne({
+      tokenId,
+      expiresAt: { $gt: new Date() }
+    });
+    return !!blacklisted;
+  }
+
+  // Decode token without verification (for debugging)
+  decodeToken(token) {
+    try {
+      return jwt.decode(token, { complete: true });
+    } catch (error) {
+      return null;
+    }
+  }
+}
+
+// Refresh token model
+const refreshTokenSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  tokenHash: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  revoked: {
+    type: Boolean,
+    default: false
+  },
+  expiresAt: {
+    type: Date,
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+// Token blacklist model
+const tokenBlacklistSchema = new mongoose.Schema({
+  tokenId: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  blacklistedAt: {
+    type: Date,
+    default: Date.now
+  },
+  expiresAt: {
+    type: Date,
+    required: true
+  }
+});
+
+const RefreshToken = mongoose.model('RefreshToken', refreshTokenSchema);
+const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
+```
+
+#### **Multi-Factor Authentication (MFA)**
+```javascript
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
+
+// TOTP (Time-based One-Time Password) implementation
+class MFAController {
+  constructor() {
+    this.issuer = 'YourApp';
+    this.algorithm = 'sha1';
+    this.digits = 6;
+    this.period = 30; // 30 seconds
+  }
+
+  // Generate TOTP secret for user
+  generateTOTPSecret(userId) {
+    const secret = speakeasy.generateSecret({
+      name: `${this.issuer}:${userId}`,
+      issuer: this.issuer,
+      length: 32
+    });
+
+    return {
+      secret: secret.base32,
+      otpauthUrl: secret.otpauth_url
+    };
+  }
+
+  // Generate QR code for TOTP setup
+  async generateQRCode(otpauthUrl) {
+    try {
+      const qrCodeDataURL = await qrcode.toDataURL(otpauthUrl);
+      return qrCodeDataURL;
+    } catch (error) {
+      throw new Error('Failed to generate QR code');
+    }
+  }
+
+  // Verify TOTP token
+  verifyTOTP(secret, token) {
+    return speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: token,
+      window: 2, // Allow 2 time windows (1 minute)
+      algorithm: this.algorithm,
+      digits: this.digits,
+      step: this.period
+    });
+  }
+
+  // Generate backup codes
+  generateBackupCodes(count = 10) {
+    const codes = [];
+    for (let i = 0; i < count; i++) {
+      codes.push(crypto.randomBytes(4).toString('hex').toUpperCase());
+    }
+    return codes;
+  }
+
+  // Hash backup codes for storage
+  hashBackupCodes(codes) {
+    return codes.map(code =>
+      crypto.createHash('sha256').update(code).digest('hex')
+    );
+  }
+
+  // Verify backup code
+  verifyBackupCode(hashedCodes, code) {
+    const hashedCode = crypto.createHash('sha256').update(code).digest('hex');
+    const index = hashedCodes.indexOf(hashedCode);
+
+    if (index === -1) {
+      return false;
+    }
+
+    // Remove used backup code
+    hashedCodes.splice(index, 1);
+    return true;
+  }
+}
+
+// MFA-enabled authentication middleware
+function requireMFA(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  // Check if user has MFA enabled
+  if (!req.user.mfaEnabled) {
+    return next(); // Skip MFA if not enabled
+  }
+
+  // Check if MFA has been verified in this session
+  if (req.session.mfaVerified) {
+    return next();
+  }
+
+  // MFA required but not verified
+  return res.status(403).json({
+    error: 'Multi-factor authentication required',
+    mfaRequired: true,
+    mfaMethod: req.user.mfaMethod
+  });
+}
+
+// MFA verification endpoint
+app.post('/auth/verify-mfa', authenticateToken, async (req, res) => {
+  try {
+    const { token, method } = req.body;
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    let verified = false;
+
+    if (method === 'totp') {
+      const mfa = new MFAController();
+      verified = mfa.verifyTOTP(user.mfaSecret, token);
+    } else if (method === 'backup') {
+      const mfa = new MFAController();
+      verified = mfa.verifyBackupCode(user.backupCodes, token);
+
+      // Update backup codes if one was used
+      if (verified) {
+        await User.findByIdAndUpdate(user._id, {
+          backupCodes: user.backupCodes
+        });
+      }
+    }
+
+    if (!verified) {
+      return res.status(401).json({ error: 'Invalid MFA token' });
+    }
+
+    // Mark MFA as verified for this session
+    req.session.mfaVerified = true;
+
+    res.json({ message: 'MFA verification successful' });
+  } catch (error) {
+    console.error('MFA verification error:', error);
+    res.status(500).json({ error: 'MFA verification failed' });
+  }
+});
+
+// Setup MFA endpoint
+app.post('/auth/setup-mfa', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    const mfa = new MFAController();
+
+    // Generate TOTP secret
+    const { secret, otpauthUrl } = mfa.generateTOTPSecret(user._id.toString());
+
+    // Generate QR code
+    const qrCode = await mfa.generateQRCode(otpauthUrl);
+
+    // Generate backup codes
+    const backupCodes = mfa.generateBackupCodes();
+    const hashedBackupCodes = mfa.hashBackupCodes(backupCodes);
+
+    // Store in database (don't store plain backup codes)
+    user.mfaSecret = secret;
+    user.backupCodes = hashedBackupCodes;
+    user.mfaEnabled = false; // Will be enabled after verification
+    await user.save();
+
+    res.json({
+      secret: secret,
+      qrCode: qrCode,
+      backupCodes: backupCodes, // Send plain codes to user once
+      message: 'Scan QR code with authenticator app and verify setup'
+    });
+  } catch (error) {
+    console.error('MFA setup error:', error);
+    res.status(500).json({ error: 'MFA setup failed' });
+  }
+});
+
+// Verify MFA setup
+app.post('/auth/verify-mfa-setup', authenticateToken, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const user = await User.findById(req.user.userId);
+    const mfa = new MFAController();
+
+    const verified = mfa.verifyTOTP(user.mfaSecret, token);
+
+    if (!verified) {
+      return res.status(401).json({ error: 'Invalid verification token' });
+    }
+
+    // Enable MFA
+    user.mfaEnabled = true;
+    user.mfaMethod = 'totp';
+    await user.save();
+
+    res.json({ message: 'MFA setup completed successfully' });
+  } catch (error) {
+    console.error('MFA setup verification error:', error);
+    res.status(500).json({ error: 'MFA setup verification failed' });
+  }
+});
+```
+
+#### **OAuth 2.0 and OpenID Connect Implementation**
+```javascript
+const passport = require('passport');
+const OAuth2Strategy = require('passport-oauth2').Strategy;
+const { Issuer, Strategy: OpenIDStrategy } = require('openid-client');
+
+// OAuth 2.0 Client Configuration
+class OAuthClient {
+  constructor(config) {
+    this.clientId = config.clientId;
+    this.clientSecret = config.clientSecret;
+    this.authorizationURL = config.authorizationURL;
+    this.tokenURL = config.tokenURL;
+    this.callbackURL = config.callbackURL;
+    this.scope = config.scope || ['openid', 'profile', 'email'];
+  }
+
+  // Initialize OAuth 2.0 strategy
+  initialize() {
+    passport.use('oauth2', new OAuth2Strategy({
+      authorizationURL: this.authorizationURL,
+      tokenURL: this.tokenURL,
+      clientID: this.clientId,
+      clientSecret: this.clientSecret,
+      callbackURL: this.callbackURL,
+      scope: this.scope
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        // Fetch user profile from OAuth provider
+        const userProfile = await this.fetchUserProfile(accessToken);
+
+        // Find or create user in your database
+        let user = await User.findOne({
+          oauthId: userProfile.id,
+          oauthProvider: 'oauth2'
+        });
+
+        if (!user) {
+          user = new User({
+            oauthId: userProfile.id,
+            oauthProvider: 'oauth2',
+            email: userProfile.email,
+            name: userProfile.name,
+            avatar: userProfile.avatar,
+            oauthTokens: {
+              accessToken,
+              refreshToken
+            }
+          });
+          await user.save();
+        } else {
+          // Update tokens
+          user.oauthTokens = { accessToken, refreshToken };
+          await user.save();
+        }
+
+        done(null, user);
+      } catch (error) {
+        done(error, null);
+      }
+    }));
+  }
+
+  // Fetch user profile from OAuth provider
+  async fetchUserProfile(accessToken) {
+    // This would vary based on the OAuth provider
+    // Example for a generic OAuth 2.0 provider
+    const response = await fetch('https://oauth-provider.com/api/user', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return await response.json();
+  }
+}
+
+// OpenID Connect Implementation
+class OpenIDClient {
+  constructor(config) {
+    this.issuerUrl = config.issuerUrl;
+    this.clientId = config.clientId;
+    this.clientSecret = config.clientSecret;
+    this.redirectUri = config.redirectUri;
+  }
+
+  async initialize() {
+    // Discover OpenID provider configuration
+    const issuer = await Issuer.discover(this.issuerUrl);
+
+    const client = new issuer.Client({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      redirect_uris: [this.redirectUri],
+      response_types: ['code']
+    });
+
+    // Initialize OpenID strategy
+    passport.use('openid', new OpenIDStrategy({
+      client,
+      params: {
+        scope: 'openid profile email'
+      }
+    },
+    async (tokenset, userinfo, done) => {
+      try {
+        // Extract user information
+        const userProfile = {
+          id: userinfo.sub,
+          email: userinfo.email,
+          name: userinfo.name,
+          givenName: userinfo.given_name,
+          familyName: userinfo.family_name,
+          avatar: userinfo.picture
+        };
+
+        // Find or create user
+        let user = await User.findOne({
+          openidSub: userProfile.id,
+          openidIssuer: this.issuerUrl
+        });
+
+        if (!user) {
+          user = new User({
+            openidSub: userProfile.id,
+            openidIssuer: this.issuerUrl,
+            email: userProfile.email,
+            name: userProfile.name,
+            avatar: userProfile.avatar,
+            openidTokens: {
+              accessToken: tokenset.access_token,
+              refreshToken: tokenset.refresh_token,
+              idToken: tokenset.id_token
+            }
+          });
+          await user.save();
+        } else {
+          // Update tokens
+          user.openidTokens = {
+            accessToken: tokenset.access_token,
+            refreshToken: tokenset.refresh_token,
+            idToken: tokenset.id_token
+          };
+          await user.save();
+        }
+
+        done(null, user);
+      } catch (error) {
+        done(error, null);
+      }
+    }));
+
+    return client;
+  }
+}
+
+// Social Login Manager
+class SocialLoginManager {
+  constructor() {
+    this.providers = new Map();
+  }
+
+  // Register OAuth provider
+  registerProvider(name, provider) {
+    this.providers.set(name, provider);
+  }
+
+  // Get authorization URL
+  getAuthorizationUrl(providerName, options = {}) {
+    const provider = this.providers.get(providerName);
+    if (!provider) {
+      throw new Error(`Provider ${providerName} not registered`);
+    }
+
+    return provider.getAuthorizationUrl(options);
+  }
+
+  // Handle callback
+  async handleCallback(providerName, code, state) {
+    const provider = this.providers.get(providerName);
+    if (!provider) {
+      throw new Error(`Provider ${providerName} not registered`);
+    }
+
+    return await provider.handleCallback(code, state);
+  }
+
+  // Get user profile
+  async getUserProfile(providerName, accessToken) {
+    const provider = this.providers.get(providerName);
+    if (!provider) {
+      throw new Error(`Provider ${providerName} not registered`);
+    }
+
+    return await provider.getUserProfile(accessToken);
+  }
+}
+
+// Usage example
+const socialLogin = new SocialLoginManager();
+
+// Register Google OAuth
+socialLogin.registerProvider('google', new OAuthClient({
+  clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  authorizationURL: 'https://accounts.google.com/o/oauth2/v2/auth',
+  tokenURL: 'https://oauth2.googleapis.com/token',
+  callbackURL: '/auth/google/callback',
+  scope: ['openid', 'profile', 'email']
+}));
+
+// Register GitHub OAuth
+socialLogin.registerProvider('github', new OAuthClient({
+  clientId: process.env.GITHUB_CLIENT_ID,
+  clientSecret: process.env.GITHUB_CLIENT_SECRET,
+  authorizationURL: 'https://github.com/login/oauth/authorize',
+  tokenURL: 'https://github.com/login/oauth/access_token',
+  callbackURL: '/auth/github/callback',
+  scope: ['user:email', 'read:user']
+}));
+
+// Routes
+app.get('/auth/:provider', (req, res) => {
+  const { provider } = req.params;
+  const authUrl = socialLogin.getAuthorizationUrl(provider, {
+    state: crypto.randomBytes(32).toString('hex') // CSRF protection
+  });
+  res.redirect(authUrl);
+});
+
+app.get('/auth/:provider/callback', async (req, res) => {
+  try {
+    const { provider } = req.params;
+    const { code, state } = req.query;
+
+    // Verify state parameter for CSRF protection
+    if (!state || state !== req.session.oauthState) {
+      return res.status(400).json({ error: 'Invalid state parameter' });
+    }
+
+    const tokens = await socialLogin.handleCallback(provider, code, state);
+    const userProfile = await socialLogin.getUserProfile(provider, tokens.accessToken);
+
+    // Create or update user
+    let user = await User.findOne({
+      [`${provider}Id`]: userProfile.id
+    });
+
+    if (!user) {
+      user = new User({
+        [`${provider}Id`]: userProfile.id,
+        email: userProfile.email,
+        name: userProfile.name,
+        avatar: userProfile.avatar,
+        authProvider: provider
+      });
+      await user.save();
+    }
+
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      message: 'Authentication successful',
+      token: jwtToken,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+```
+
+#### **Advanced Security Patterns**
+```javascript
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const slowDown = require('express-slow-down');
+const hpp = require('hpp');
+const mongoSanitize = require('express-mongo-sanitize');
+const xss = require('xss-clean');
+
+// Security middleware stack
+class SecurityMiddleware {
+  static applySecurityHeaders(app) {
+    // Helmet for security headers
+    app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'", "https://api.example.com"]
+        }
+      },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true
+      }
+    }));
+  }
+
+  static applyRateLimiting(app) {
+    // General API rate limiting
+    const apiLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // Limit each IP to 100 requests per window
+      message: {
+        error: 'Too many requests from this IP',
+        retryAfter: Math.ceil(15 * 60)
+      },
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: (req, res) => {
+        res.status(429).json({
+          error: 'Rate limit exceeded',
+          retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+        });
+      }
+    });
+
+    // Auth-specific rate limiting
+    const authLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: 'Too many authentication attempts',
+      skipSuccessfulRequests: true
+    });
+
+    // Password reset rate limiting
+    const passwordResetLimiter = rateLimit({
+      windowMs: 60 * 60 * 1000, // 1 hour
+      max: 3,
+      message: 'Too many password reset attempts'
+    });
+
+    // Progressive delay for brute force protection
+    const speedLimiter = slowDown({
+      windowMs: 15 * 60 * 1000,
+      delayAfter: 10,
+      delayMs: 500,
+      maxDelayMs: 20000
+    });
+
+    app.use('/api/', apiLimiter);
+    app.use('/auth/login', authLimiter);
+    app.use('/auth/register', authLimiter);
+    app.use('/auth/forgot-password', passwordResetLimiter);
+    app.use('/auth/', speedLimiter);
+  }
+
+  static applyInputValidation(app) {
+    // Data sanitization
+    app.use(mongoSanitize()); // Prevent MongoDB injection
+    app.use(hpp()); // Prevent HTTP parameter pollution
+    app.use(xss()); // Prevent XSS attacks
+
+    // CORS configuration
+    const cors = require('cors');
+    app.use(cors({
+      origin: function (origin, callback) {
+        const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
+      credentials: true,
+      optionsSuccessStatus: 200
+    }));
+  }
+
+  static applySecurityMonitoring(app) {
+    // Request logging with security focus
+    app.use((req, res, next) => {
+      const start = Date.now();
+
+      res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logData = {
+          method: req.method,
+          url: req.url,
+          status: res.statusCode,
+          duration,
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+          timestamp: new Date().toISOString()
+        };
+
+        // Log suspicious activities
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          console.warn('Security event:', logData);
+        } else if (duration > 10000) { // Slow requests might indicate attacks
+          console.warn('Slow request:', logData);
+        } else {
+          console.log('Request:', logData);
+        }
+      });
+
+      next();
+    });
+  }
+
+  // Apply all security middleware
+  static applyAll(app) {
+    this.applySecurityHeaders(app);
+    this.applyRateLimiting(app);
+    this.applyInputValidation(app);
+    this.applySecurityMonitoring(app);
+  }
+}
+
+// Security audit logging
+class SecurityAuditor {
+  constructor() {
+    this.auditLog = [];
+  }
+
+  logSecurityEvent(event) {
+    const auditEntry = {
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      ...event
+    };
+
+    this.auditLog.push(auditEntry);
+
+    // In production, send to security monitoring service
+    console.log('Security Audit:', auditEntry);
+
+    // Keep only last 1000 entries
+    if (this.auditLog.length > 1000) {
+      this.auditLog.shift();
+    }
+  }
+
+  logFailedLogin(credentials, ip, userAgent) {
+    this.logSecurityEvent({
+      type: 'FAILED_LOGIN',
+      credentials: { ...credentials, password: '[REDACTED]' },
+      ip,
+      userAgent,
+      severity: 'medium'
+    });
+  }
+
+  logSuccessfulLogin(user, ip, userAgent) {
+    this.logSecurityEvent({
+      type: 'SUCCESSFUL_LOGIN',
+      userId: user.id,
+      email: user.email,
+      ip,
+      userAgent,
+      severity: 'low'
+    });
+  }
+
+  logSuspiciousActivity(activity, ip, userAgent) {
+    this.logSecurityEvent({
+      type: 'SUSPICIOUS_ACTIVITY',
+      activity,
+      ip,
+      userAgent,
+      severity: 'high'
+    });
+  }
+
+  getAuditLog(hours = 24) {
+    const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+    return this.auditLog.filter(entry =>
+      new Date(entry.timestamp) > cutoff
+    );
+  }
+}
+
+// Usage
+const securityAuditor = new SecurityAuditor();
+
+// Apply security middleware
+SecurityMiddleware.applyAll(app);
+
+// Audit login attempts
+app.post('/auth/login', async (req, res) => {
+  const { email, password } = req.body;
+  const ip = req.ip;
+  const userAgent = req.get('User-Agent');
+
+  try {
+    // Authentication logic
+    const user = await authenticateUser(email, password);
+
+    if (user) {
+      securityAuditor.logSuccessfulLogin(user, ip, userAgent);
+      // Generate token and respond
+    } else {
+      securityAuditor.logFailedLogin({ email }, ip, userAgent);
+      res.status(401).json({ error: 'Invalid credentials' });
+    }
+  } catch (error) {
+    securityAuditor.logFailedLogin({ email }, ip, userAgent);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+});
+
+// Suspicious activity detection
+app.use((req, res, next) => {
+  // Detect potential SQL injection attempts
+  const suspiciousPatterns = [
+    /(\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b)/i,
+    /('|(\\x27)|(\\x2D\\x2D)|(\\#)|(\%27)|(\%22)|(\%23))/i
+  ];
+
+  const requestData = JSON.stringify({
+    url: req.url,
+    body: req.body,
+    query: req.query,
+    headers: req.headers
+  });
+
+  const isSuspicious = suspiciousPatterns.some(pattern =>
+    pattern.test(requestData)
+  );
+
+  if (isSuspicious) {
+    securityAuditor.logSuspiciousActivity(
+      'Potential injection attempt',
+      req.ip,
+      req.get('User-Agent')
+    );
+  }
+
+  next();
+});
+```
+
+## **14. Resources**
+
+- [JWT.io](https://jwt.io/) - JWT debugger and library
+- [OAuth 2.0](https://oauth.net/2/) - OAuth specification
+- [OpenID Connect](https://openid.net/connect/) - OpenID Connect specification
+- [Passport.js](http://www.passportjs.org/) - Authentication middleware
+- [bcrypt](https://www.npmjs.com/package/bcrypt) - Password hashing
+- [speakeasy](https://www.npmjs.com/package/speakeasy) - TOTP implementation
+- [helmet](https://helmetjs.github.io/) - Security headers
+- [OWASP](https://owasp.org/) - Web application security
+
+## **15. Next Steps**
+
+In the next lesson, we'll explore testing methodologies for full-stack applications. You'll learn about:
+- Unit testing with Jest
+- Integration testing
+- End-to-end testing with Cypress
+- Test-driven development (TDD)
+- Testing best practices
+
+Practice implementing authentication in your applications and experiment with different authorization patterns!
+
+---
+
+This comprehensive authentication guide covers everything from basic JWT implementation to advanced security patterns including MFA, OAuth 2.0, OpenID Connect, and enterprise-grade security measures. The examples are production-ready and follow current security best practices for professional authentication systems.

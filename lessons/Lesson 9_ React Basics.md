@@ -1684,14 +1684,1117 @@ function DataProvider({ render }) {
 )} />
 ```
 
-## **15. Resources**
+## **15. Advanced React Patterns and Performance**
+
+### **Advanced Hooks and Custom Hooks**
+
+#### **useReducer for Complex State Logic**
+```jsx
+// Reducer function
+function todoReducer(state, action) {
+    switch (action.type) {
+        case 'ADD_TODO':
+            return {
+                ...state,
+                todos: [...state.todos, {
+                    id: Date.now(),
+                    text: action.payload,
+                    completed: false
+                }]
+            };
+        case 'TOGGLE_TODO':
+            return {
+                ...state,
+                todos: state.todos.map(todo =>
+                    todo.id === action.payload
+                        ? { ...todo, completed: !todo.completed }
+                        : todo
+                )
+            };
+        case 'DELETE_TODO':
+            return {
+                ...state,
+                todos: state.todos.filter(todo => todo.id !== action.payload)
+            };
+        case 'SET_FILTER':
+            return {
+                ...state,
+                filter: action.payload
+            };
+        default:
+            return state;
+    }
+}
+
+// Custom hook using useReducer
+function useTodos() {
+    const [state, dispatch] = useReducer(todoReducer, {
+        todos: [],
+        filter: 'all'
+    });
+
+    const addTodo = (text) => {
+        dispatch({ type: 'ADD_TODO', payload: text });
+    };
+
+    const toggleTodo = (id) => {
+        dispatch({ type: 'TOGGLE_TODO', payload: id });
+    };
+
+    const deleteTodo = (id) => {
+        dispatch({ type: 'DELETE_TODO', payload: id });
+    };
+
+    const setFilter = (filter) => {
+        dispatch({ type: 'SET_FILTER', payload: filter });
+    };
+
+    const filteredTodos = useMemo(() => {
+        switch (state.filter) {
+            case 'active':
+                return state.todos.filter(todo => !todo.completed);
+            case 'completed':
+                return state.todos.filter(todo => todo.completed);
+            default:
+                return state.todos;
+        }
+    }, [state.todos, state.filter]);
+
+    return {
+        todos: filteredTodos,
+        filter: state.filter,
+        addTodo,
+        toggleTodo,
+        deleteTodo,
+        setFilter
+    };
+}
+
+// Usage
+function TodoApp() {
+    const {
+        todos,
+        filter,
+        addTodo,
+        toggleTodo,
+        deleteTodo,
+        setFilter
+    } = useTodos();
+
+    const [inputValue, setInputValue] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (inputValue.trim()) {
+            addTodo(inputValue.trim());
+            setInputValue('');
+        }
+    };
+
+    return (
+        <div className="todo-app">
+            <form onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Add a todo..."
+                />
+                <button type="submit">Add</button>
+            </form>
+
+            <div className="filters">
+                {['all', 'active', 'completed'].map(filterType => (
+                    <button
+                        key={filterType}
+                        onClick={() => setFilter(filterType)}
+                        className={filter === filterType ? 'active' : ''}
+                    >
+                        {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                    </button>
+                ))}
+            </div>
+
+            <ul className="todo-list">
+                {todos.map(todo => (
+                    <li key={todo.id} className={todo.completed ? 'completed' : ''}>
+                        <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => toggleTodo(todo.id)}
+                        />
+                        <span>{todo.text}</span>
+                        <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+```
+
+#### **useImperativeHandle for Component API**
+```jsx
+// Child component exposing imperative API
+const FancyInput = React.forwardRef((props, ref) => {
+    const inputRef = useRef();
+
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            inputRef.current.focus();
+        },
+        blur: () => {
+            inputRef.current.blur();
+        },
+        getValue: () => {
+            return inputRef.current.value;
+        },
+        setValue: (value) => {
+            inputRef.current.value = value;
+        },
+        shake: () => {
+            inputRef.current.style.animation = 'shake 0.5s';
+            setTimeout(() => {
+                inputRef.current.style.animation = '';
+            }, 500);
+        }
+    }));
+
+    return (
+        <input
+            ref={inputRef}
+            type="text"
+            className="fancy-input"
+            {...props}
+        />
+    );
+});
+
+// Parent component using the imperative API
+function Form() {
+    const inputRef = useRef();
+
+    const handleFocus = () => {
+        inputRef.current.focus();
+    };
+
+    const handleShake = () => {
+        inputRef.current.shake();
+    };
+
+    const handleGetValue = () => {
+        console.log('Current value:', inputRef.current.getValue());
+    };
+
+    const handleSetValue = () => {
+        inputRef.current.setValue('Hello World!');
+    };
+
+    return (
+        <div>
+            <FancyInput ref={inputRef} placeholder="Type something..." />
+            <div className="buttons">
+                <button onClick={handleFocus}>Focus</button>
+                <button onClick={handleShake}>Shake</button>
+                <button onClick={handleGetValue}>Get Value</button>
+                <button onClick={handleSetValue}>Set Value</button>
+            </div>
+        </div>
+    );
+}
+```
+
+#### **useLayoutEffect vs useEffect**
+```jsx
+// useLayoutEffect runs synchronously after DOM mutations
+function Modal({ isOpen, children }) {
+    const modalRef = useRef();
+
+    useLayoutEffect(() => {
+        if (isOpen) {
+            // Measure the modal content
+            const rect = modalRef.current.getBoundingClientRect();
+            console.log('Modal dimensions:', rect);
+
+            // Center the modal
+            modalRef.current.style.left = `calc(50% - ${rect.width / 2}px)`;
+            modalRef.current.style.top = `calc(50% - ${rect.height / 2}px)`;
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    return ReactDOM.createPortal(
+        <div ref={modalRef} className="modal">
+            {children}
+        </div>,
+        document.body
+    );
+}
+
+// useEffect runs asynchronously after render
+function DataFetcher({ url }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if (isMounted) {
+                    setData(result);
+                    setLoading(false);
+                }
+            } catch (error) {
+                if (isMounted) {
+                    console.error('Fetch error:', error);
+                    setLoading(false);
+                }
+            }
+        };
+
+        fetchData();
+
+        // Cleanup function
+        return () => {
+            isMounted = false;
+        };
+    }, [url]);
+
+    if (loading) return <div>Loading...</div>;
+    return <div>{JSON.stringify(data)}</div>;
+}
+```
+
+#### **useDeferredValue for Non-Urgent Updates**
+```jsx
+// Expensive component that might cause UI blocking
+function ExpensiveList({ items, query }) {
+    const deferredQuery = useDeferredValue(query);
+
+    const filteredItems = useMemo(() => {
+        // Expensive filtering operation
+        return items.filter(item =>
+            item.name.toLowerCase().includes(deferredQuery.toLowerCase())
+        );
+    }, [items, deferredQuery]);
+
+    return (
+        <ul>
+            {filteredItems.map(item => (
+                <li key={item.id}>{item.name}</li>
+            ))}
+        </ul>
+    );
+}
+
+// Parent component
+function SearchApp() {
+    const [query, setQuery] = useState('');
+    const [items] = useState(
+        Array.from({ length: 10000 }, (_, i) => ({
+            id: i,
+            name: `Item ${i}`
+        }))
+    );
+
+    return (
+        <div>
+            <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search items..."
+            />
+            <ExpensiveList items={items} query={query} />
+        </div>
+    );
+}
+```
+
+#### **useTransition for Concurrent Features**
+```jsx
+function SearchApp() {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [isPending, startTransition] = useTransition();
+
+    const handleSearch = (searchQuery) => {
+        setQuery(searchQuery);
+
+        // Mark this as a non-urgent update
+        startTransition(() => {
+            // Expensive search operation
+            const searchResults = performExpensiveSearch(searchQuery);
+            setResults(searchResults);
+        });
+    };
+
+    return (
+        <div>
+            <input
+                type="text"
+                value={query}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search..."
+            />
+
+            {isPending && <div className="loading">Searching...</div>}
+
+            <div className="results">
+                {results.map(result => (
+                    <div key={result.id} className="result-item">
+                        {result.title}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+```
+
+### **Advanced State Management Patterns**
+
+#### **Zustand for Lightweight State Management**
+```jsx
+// Store definition
+import create from 'zustand';
+import { devtools, persist } from 'zustand/middleware';
+
+const useStore = create(
+    devtools(
+        persist(
+            (set, get) => ({
+                // State
+                user: null,
+                todos: [],
+                theme: 'light',
+
+                // Actions
+                setUser: (user) => set({ user }),
+                addTodo: (todo) => set(state => ({
+                    todos: [...state.todos, { ...todo, id: Date.now() }]
+                })),
+                toggleTodo: (id) => set(state => ({
+                    todos: state.todos.map(todo =>
+                        todo.id === id
+                            ? { ...todo, completed: !todo.completed }
+                            : todo
+                    )
+                })),
+                deleteTodo: (id) => set(state => ({
+                    todos: state.todos.filter(todo => todo.id !== id)
+                })),
+                setTheme: (theme) => set({ theme }),
+
+                // Computed properties
+                get completedTodos() {
+                    return get().todos.filter(todo => todo.completed);
+                },
+
+                get activeTodos() {
+                    return get().todos.filter(todo => !todo.completed);
+                }
+            }),
+            {
+                name: 'app-storage',
+                partialize: (state) => ({
+                    theme: state.theme,
+                    user: state.user
+                })
+            }
+        ),
+        { name: 'app-store' }
+    )
+);
+
+// Usage in components
+function TodoApp() {
+    const {
+        todos,
+        addTodo,
+        toggleTodo,
+        deleteTodo,
+        completedTodos,
+        activeTodos
+    } = useStore();
+
+    const [inputValue, setInputValue] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (inputValue.trim()) {
+            addTodo({ text: inputValue.trim(), completed: false });
+            setInputValue('');
+        }
+    };
+
+    return (
+        <div>
+            <h2>Active: {activeTodos.length}, Completed: {completedTodos.length}</h2>
+
+            <form onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    placeholder="Add todo..."
+                />
+                <button type="submit">Add</button>
+            </form>
+
+            <ul>
+                {todos.map(todo => (
+                    <li key={todo.id}>
+                        <input
+                            type="checkbox"
+                            checked={todo.completed}
+                            onChange={() => toggleTodo(todo.id)}
+                        />
+                        <span style={{
+                            textDecoration: todo.completed ? 'line-through' : 'none'
+                        }}>
+                            {todo.text}
+                        </span>
+                        <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function ThemeToggle() {
+    const { theme, setTheme } = useStore();
+
+    return (
+        <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            Toggle to {theme === 'light' ? 'dark' : 'light'} theme
+        </button>
+    );
+}
+```
+
+#### **Recoil for Complex State Management**
+```jsx
+// Atoms
+import { atom, selector, useRecoilState, useRecoilValue } from 'recoil';
+
+const userState = atom({
+    key: 'userState',
+    default: null,
+});
+
+const todosState = atom({
+    key: 'todosState',
+    default: [],
+});
+
+const todoFilterState = atom({
+    key: 'todoFilterState',
+    default: 'all',
+});
+
+// Selectors
+const filteredTodosState = selector({
+    key: 'filteredTodosState',
+    get: ({ get }) => {
+        const todos = get(todosState);
+        const filter = get(todoFilterState);
+
+        switch (filter) {
+            case 'completed':
+                return todos.filter(todo => todo.completed);
+            case 'active':
+                return todos.filter(todo => !todo.completed);
+            default:
+                return todos;
+        }
+    },
+});
+
+const todoStatsState = selector({
+    key: 'todoStatsState',
+    get: ({ get }) => {
+        const todos = get(todosState);
+        const completed = todos.filter(todo => todo.completed).length;
+        const active = todos.length - completed;
+
+        return { total: todos.length, completed, active };
+    },
+});
+
+// Async selectors
+const userProfileState = selector({
+    key: 'userProfileState',
+    get: async ({ get }) => {
+        const user = get(userState);
+        if (!user) return null;
+
+        try {
+            const response = await fetch(`/api/users/${user.id}/profile`);
+            return await response.json();
+        } catch (error) {
+            throw error;
+        }
+    },
+});
+
+// Usage
+function TodoApp() {
+    const [todos, setTodos] = useRecoilState(todosState);
+    const [filter, setFilter] = useRecoilState(todoFilterState);
+    const filteredTodos = useRecoilValue(filteredTodosState);
+    const stats = useRecoilValue(todoStatsState);
+
+    const addTodo = (text) => {
+        setTodos(prev => [...prev, {
+            id: Date.now(),
+            text,
+            completed: false
+        }]);
+    };
+
+    const toggleTodo = (id) => {
+        setTodos(prev => prev.map(todo =>
+            todo.id === id ? { ...todo, completed: !todo.completed } : todo
+        ));
+    };
+
+    return (
+        <div>
+            <div className="stats">
+                Total: {stats.total}, Active: {stats.active}, Completed: {stats.completed}
+            </div>
+
+            <div className="filters">
+                {['all', 'active', 'completed'].map(filterType => (
+                    <button
+                        key={filterType}
+                        onClick={() => setFilter(filterType)}
+                        className={filter === filterType ? 'active' : ''}
+                    >
+                        {filterType}
+                    </button>
+                ))}
+            </div>
+
+            <TodoList todos={filteredTodos} onToggle={toggleTodo} />
+            <AddTodo onAdd={addTodo} />
+        </div>
+    );
+}
+
+function UserProfile() {
+    const userProfile = useRecoilValue(userProfileState);
+
+    if (!userProfile) return <div>No user profile</div>;
+
+    return (
+        <div>
+            <h2>{userProfile.name}</h2>
+            <p>{userProfile.bio}</p>
+        </div>
+    );
+}
+```
+
+### **Server-Side Rendering and Static Generation**
+
+#### **Next.js App Router (Modern)**
+```jsx
+// app/layout.js
+import './globals.css';
+
+export const metadata = {
+    title: 'My App',
+    description: 'A modern web application',
+};
+
+export default function RootLayout({ children }) {
+    return (
+        <html lang="en">
+            <body>
+                <header>
+                    <nav>
+                        <Link href="/">Home</Link>
+                        <Link href="/about">About</Link>
+                        <Link href="/posts">Posts</Link>
+                    </nav>
+                </header>
+                <main>{children}</main>
+                <footer>© 2024 My App</footer>
+            </body>
+        </html>
+    );
+}
+
+// app/page.js
+import Link from 'next/link';
+
+export default function HomePage() {
+    return (
+        <div>
+            <h1>Welcome to My App</h1>
+            <p>This is the home page.</p>
+            <Link href="/posts">View Posts</Link>
+        </div>
+    );
+}
+
+// app/posts/page.js
+import { getPosts } from '@/lib/posts';
+
+export default async function PostsPage() {
+    const posts = await getPosts();
+
+    return (
+        <div>
+            <h1>Posts</h1>
+            <ul>
+                {posts.map(post => (
+                    <li key={post.id}>
+                        <Link href={`/posts/${post.id}`}>
+                            {post.title}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+// app/posts/[id]/page.js
+import { getPost } from '@/lib/posts';
+import { notFound } from 'next/navigation';
+
+export async function generateStaticParams() {
+    const posts = await getPosts();
+
+    return posts.map(post => ({
+        id: post.id.toString(),
+    }));
+}
+
+export async function generateMetadata({ params }) {
+    const post = await getPost(params.id);
+
+    if (!post) {
+        return {
+            title: 'Post Not Found',
+        };
+    }
+
+    return {
+        title: post.title,
+        description: post.excerpt,
+    };
+}
+
+export default async function PostPage({ params }) {
+    const post = await getPost(params.id);
+
+    if (!post) {
+        notFound();
+    }
+
+    return (
+        <article>
+            <h1>{post.title}</h1>
+            <p className="date">{post.date}</p>
+            <div dangerouslySetInnerHTML={{ __html: post.content }} />
+        </article>
+    );
+}
+```
+
+#### **Remix for Web Standards**
+```jsx
+// app/root.jsx
+import { Links, LiveReload, Meta, Outlet, Scripts } from '@remix-run/react';
+
+export default function App() {
+    return (
+        <html lang="en">
+            <head>
+                <meta charSet="utf-8" />
+                <meta name="viewport" content="width=device-width,initial-scale=1" />
+                <Meta />
+                <Links />
+            </head>
+            <body>
+                <header>
+                    <nav>
+                        <Link to="/">Home</Link>
+                        <Link to="/posts">Posts</Link>
+                    </nav>
+                </header>
+                <main>
+                    <Outlet />
+                </main>
+                <Scripts />
+                <LiveReload />
+            </body>
+        </html>
+    );
+}
+
+// app/routes/index.jsx
+export default function Index() {
+    return (
+        <div>
+            <h1>Welcome to Remix</h1>
+            <p>This is a modern web application.</p>
+        </div>
+    );
+}
+
+// app/routes/posts.jsx
+import { json } from '@remix-run/node';
+import { useLoaderData, Link } from '@remix-run/react';
+
+export async function loader() {
+    const posts = await getPosts();
+    return json({ posts });
+}
+
+export default function Posts() {
+    const { posts } = useLoaderData();
+
+    return (
+        <div>
+            <h1>Posts</h1>
+            <ul>
+                {posts.map(post => (
+                    <li key={post.id}>
+                        <Link to={`/posts/${post.id}`}>
+                            {post.title}
+                        </Link>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+// app/routes/posts.$id.jsx
+import { json } from '@remix-run/node';
+import { useLoaderData } from '@remix-run/react';
+
+export async function loader({ params }) {
+    const post = await getPost(params.id);
+
+    if (!post) {
+        throw new Response('Not Found', { status: 404 });
+    }
+
+    return json({ post });
+}
+
+export default function Post() {
+    const { post } = useLoaderData();
+
+    return (
+        <article>
+            <h1>{post.title}</h1>
+            <p>{post.date}</p>
+            <div>{post.content}</div>
+        </article>
+    );
+}
+```
+
+### **Testing Advanced React Components**
+
+#### **Testing Custom Hooks**
+```jsx
+// hooks/useCounter.js
+import { useState, useCallback } from 'react';
+
+function useCounter(initialValue = 0) {
+    const [count, setCount] = useState(initialValue);
+
+    const increment = useCallback(() => {
+        setCount(prev => prev + 1);
+    }, []);
+
+    const decrement = useCallback(() => {
+        setCount(prev => prev - 1);
+    }, []);
+
+    const reset = useCallback(() => {
+        setCount(initialValue);
+    }, [initialValue]);
+
+    const setValue = useCallback((value) => {
+        setCount(value);
+    }, []);
+
+    return {
+        count,
+        increment,
+        decrement,
+        reset,
+        setValue
+    };
+}
+
+export default useCounter;
+
+// hooks/__tests__/useCounter.test.js
+import { renderHook, act } from '@testing-library/react';
+import useCounter from '../useCounter';
+
+describe('useCounter', () => {
+    test('should initialize with default value', () => {
+        const { result } = renderHook(() => useCounter());
+        expect(result.current.count).toBe(0);
+    });
+
+    test('should initialize with custom value', () => {
+        const { result } = renderHook(() => useCounter(10));
+        expect(result.current.count).toBe(10);
+    });
+
+    test('should increment count', () => {
+        const { result } = renderHook(() => useCounter());
+
+        act(() => {
+            result.current.increment();
+        });
+
+        expect(result.current.count).toBe(1);
+    });
+
+    test('should decrement count', () => {
+        const { result } = renderHook(() => useCounter(5));
+
+        act(() => {
+            result.current.decrement();
+        });
+
+        expect(result.current.count).toBe(4);
+    });
+
+    test('should reset to initial value', () => {
+        const { result } = renderHook(() => useCounter(10));
+
+        act(() => {
+            result.current.increment();
+            result.current.reset();
+        });
+
+        expect(result.current.count).toBe(10);
+    });
+
+    test('should set specific value', () => {
+        const { result } = renderHook(() => useCounter());
+
+        act(() => {
+            result.current.setValue(42);
+        });
+
+        expect(result.current.count).toBe(42);
+    });
+});
+```
+
+#### **Testing Context Providers**
+```jsx
+// context/AuthContext.js
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+const AuthContext = createContext();
+
+export function AuthProvider({ children }) {
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        // Simulate API call
+        const checkAuth = async () => {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    const userData = await response.json();
+                    setUser(userData);
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkAuth();
+    }, []);
+
+    const login = async (credentials) => {
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(credentials)
+            });
+
+            if (response.ok) {
+                const userData = await response.json();
+                setUser(userData);
+                return { success: true };
+            } else {
+                return { success: false, error: 'Login failed' };
+            }
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            setUser(null);
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    };
+
+    const value = {
+        user,
+        loading,
+        login,
+        logout,
+        isAuthenticated: !!user
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+export function useAuth() {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within AuthProvider');
+    }
+    return context;
+}
+
+// context/__tests__/AuthContext.test.js
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { AuthProvider, useAuth } from '../AuthContext';
+
+// Mock fetch
+global.fetch = jest.fn();
+
+function TestComponent() {
+    const { user, loading, isAuthenticated, login, logout } = useAuth();
+
+    if (loading) return <div>Loading...</div>;
+
+    return (
+        <div>
+            <div data-testid="auth-status">
+                {isAuthenticated ? 'Authenticated' : 'Not authenticated'}
+            </div>
+            {user && <div data-testid="user-name">{user.name}</div>}
+            <button onClick={() => login({ email: 'test@example.com', password: 'password' })}>
+                Login
+            </button>
+            <button onClick={logout}>Logout</button>
+        </div>
+    );
+}
+
+describe('AuthContext', () => {
+    beforeEach(() => {
+        fetch.mockClear();
+    });
+
+    test('should show loading initially', () => {
+        fetch.mockImplementationOnce(() =>
+            new Promise(resolve => setTimeout(() => resolve({
+                ok: true,
+                json: () => Promise.resolve({ name: 'John Doe' })
+            }), 100))
+        );
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        expect(screen.getByText('Loading...')).toBeInTheDocument();
+    });
+
+    test('should authenticate user on successful API call', async () => {
+        fetch.mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ name: 'John Doe', id: 1 })
+        });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('auth-status')).toHaveTextContent('Authenticated');
+            expect(screen.getByTestId('user-name')).toHaveTextContent('John Doe');
+        });
+    });
+
+    test('should handle login', async () => {
+        fetch
+            .mockResolvedValueOnce({
+                ok: false // Initial auth check fails
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({ name: 'John Doe', id: 1 })
+            });
+
+        const { user } = render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('auth-status')).toHaveTextContent('Not authenticated');
+        });
+
+        const loginButton = screen.getByText('Login');
+        loginButton.click();
+
+        await waitFor(() => {
+            expect(screen.getByTestId('auth-status')).toHaveTextContent('Authenticated');
+        });
+    });
+});
+```
+
+## **16. Resources**
 
 - [React Official Documentation](https://reactjs.org/docs/)
 - [React Hooks Reference](https://reactjs.org/docs/hooks-reference.html)
 - [Create React App](https://create-react-app.dev/)
 - [React Developer Tools](https://chrome.google.com/webstore/detail/react-developer-tools/)
+- [Next.js Documentation](https://nextjs.org/docs/)
+- [Remix Documentation](https://remix.run/docs/)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [Zustand Documentation](https://docs.pmnd.rs/zustand/)
+- [Recoil Documentation](https://recoiljs.org/docs/introduction/getting-started/)
 
-## **16. Next Steps**
+## **17. Next Steps**
 
 In the next lesson, we'll explore React Hooks in depth. You'll learn about:
 - useEffect for side effects
@@ -1703,3 +2806,5 @@ In the next lesson, we'll explore React Hooks in depth. You'll learn about:
 Practice building React components and experiment with different patterns to strengthen your frontend development skills!
 
 ---
+
+This comprehensive React documentation covers everything from basic components to advanced patterns, modern hooks, state management, server-side rendering, and testing strategies. The examples are production-ready and follow current best practices for professional React development.

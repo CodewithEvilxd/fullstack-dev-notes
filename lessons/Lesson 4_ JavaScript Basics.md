@@ -1302,21 +1302,1455 @@ console.timeEnd('timerName');
 - Inspect variables and call stack
 - Monitor network requests
 
-## **16. Resources**
+## **16. Advanced JavaScript Concepts**
+
+### **Memory Management and Garbage Collection**
+
+#### **Memory Leaks Prevention**
+```javascript
+// Common memory leak patterns and solutions
+
+// 1. Closures can cause memory leaks
+function createLeak() {
+    const largeData = new Array(1000000).fill('data');
+
+    return function() {
+        console.log(largeData.length);
+    };
+}
+
+// Solution: Clean up references
+function createNoLeak() {
+    let largeData = new Array(1000000).fill('data');
+
+    const cleanup = () => {
+        largeData = null; // Allow garbage collection
+    };
+
+    const useData = () => {
+        if (largeData) {
+            console.log(largeData.length);
+        }
+    };
+
+    return { useData, cleanup };
+}
+
+// 2. Event listeners
+class EventManager {
+    constructor() {
+        this.listeners = new Map();
+    }
+
+    addListener(element, event, handler) {
+        if (!this.listeners.has(element)) {
+            this.listeners.set(element, new Map());
+        }
+
+        const elementListeners = this.listeners.get(element);
+        if (!elementListeners.has(event)) {
+            elementListeners.set(event, new Set());
+        }
+
+        elementListeners.get(event).add(handler);
+        element.addEventListener(event, handler);
+    }
+
+    removeListener(element, event, handler) {
+        element.removeEventListener(event, handler);
+
+        const elementListeners = this.listeners.get(element);
+        if (elementListeners && elementListeners.has(event)) {
+            elementListeners.get(event).delete(handler);
+        }
+    }
+
+    removeAllListeners(element) {
+        const elementListeners = this.listeners.get(element);
+        if (elementListeners) {
+            for (const [event, handlers] of elementListeners) {
+                for (const handler of handlers) {
+                    element.removeEventListener(event, handler);
+                }
+            }
+            this.listeners.delete(element);
+        }
+    }
+
+    destroy() {
+        for (const [element] of this.listeners) {
+            this.removeAllListeners(element);
+        }
+    }
+}
+
+// 3. Timers
+class TimerManager {
+    constructor() {
+        this.timers = new Set();
+    }
+
+    setTimeout(handler, delay) {
+        const id = setTimeout(() => {
+            this.timers.delete(id);
+            handler();
+        }, delay);
+
+        this.timers.add(id);
+        return id;
+    }
+
+    setInterval(handler, delay) {
+        const id = setInterval(handler, delay);
+        this.timers.add(id);
+        return id;
+    }
+
+    clearTimeout(id) {
+        clearTimeout(id);
+        this.timers.delete(id);
+    }
+
+    clearInterval(id) {
+        clearInterval(id);
+        this.timers.delete(id);
+    }
+
+    clearAll() {
+        for (const id of this.timers) {
+            clearTimeout(id);
+            clearInterval(id);
+        }
+        this.timers.clear();
+    }
+}
+```
+
+#### **Weak References**
+```javascript
+// WeakMap for caching without memory leaks
+class Cache {
+    constructor() {
+        this.cache = new WeakMap();
+    }
+
+    set(key, value) {
+        this.cache.set(key, {
+            value,
+            timestamp: Date.now()
+        });
+    }
+
+    get(key) {
+        const entry = this.cache.get(key);
+        if (entry) {
+            return entry.value;
+        }
+        return undefined;
+    }
+
+    has(key) {
+        return this.cache.has(key);
+    }
+
+    delete(key) {
+        return this.cache.delete(key);
+    }
+
+    // Automatic cleanup when objects are garbage collected
+}
+
+// WeakSet for tracking objects
+class ObjectTracker {
+    constructor() {
+        this.tracked = new WeakSet();
+    }
+
+    track(obj) {
+        this.tracked.add(obj);
+    }
+
+    isTracked(obj) {
+        return this.tracked.has(obj);
+    }
+
+    untrack(obj) {
+        this.tracked.delete(obj);
+    }
+}
+```
+
+### **Performance Optimization Techniques**
+
+#### **Debouncing and Throttling**
+```javascript
+// Debounce: Execute function after delay, cancel if called again
+function debounce(func, delay) {
+    let timeoutId;
+
+    return function(...args) {
+        const context = this;
+
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            func.apply(context, args);
+        }, delay);
+    };
+}
+
+// Throttle: Execute function at most once per delay period
+function throttle(func, delay) {
+    let lastCall = 0;
+
+    return function(...args) {
+        const context = this;
+        const now = Date.now();
+
+        if (now - lastCall >= delay) {
+            lastCall = now;
+            func.apply(context, args);
+        }
+    };
+}
+
+// Advanced throttle with leading and trailing options
+function advancedThrottle(func, delay, options = {}) {
+    const { leading = true, trailing = true } = options;
+    let lastCall = 0;
+    let timeoutId = null;
+
+    return function(...args) {
+        const context = this;
+        const now = Date.now();
+
+        if (now - lastCall >= delay) {
+            if (leading) {
+                func.apply(context, args);
+            }
+            lastCall = now;
+        } else if (trailing && !timeoutId) {
+            timeoutId = setTimeout(() => {
+                func.apply(context, args);
+                lastCall = Date.now();
+                timeoutId = null;
+            }, delay - (now - lastCall));
+        }
+    };
+}
+
+// Usage examples
+const debouncedSearch = debounce(searchAPI, 300);
+const throttledScroll = throttle(handleScroll, 100);
+
+// Input event with debounce
+searchInput.addEventListener('input', debouncedSearch);
+
+// Scroll event with throttle
+window.addEventListener('scroll', throttledScroll);
+```
+
+#### **Memoization**
+```javascript
+// Simple memoization
+function memoize(func) {
+    const cache = new Map();
+
+    return function(...args) {
+        const key = JSON.stringify(args);
+
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+
+        const result = func.apply(this, args);
+        cache.set(key, result);
+        return result;
+    };
+}
+
+// Advanced memoization with TTL
+function memoizeWithTTL(func, ttl = 60000) {
+    const cache = new Map();
+
+    return function(...args) {
+        const key = JSON.stringify(args);
+        const now = Date.now();
+
+        if (cache.has(key)) {
+            const { value, timestamp } = cache.get(key);
+            if (now - timestamp < ttl) {
+                return value;
+            }
+            cache.delete(key);
+        }
+
+        const result = func.apply(this, args);
+        cache.set(key, { value: result, timestamp: now });
+        return result;
+    };
+}
+
+// Memoization for methods
+function memoizeMethod(target, methodName, ttl) {
+    const originalMethod = target[methodName];
+    const memoized = memoizeWithTTL(originalMethod, ttl);
+
+    target[methodName] = memoized;
+    return target;
+}
+
+// Usage
+const expensiveCalculation = memoize((n) => {
+    console.log(`Calculating for ${n}`);
+    return n * n;
+});
+
+console.log(expensiveCalculation(5)); // Calculates
+console.log(expensiveCalculation(5)); // Returns cached result
+
+// Memoize class method
+class Calculator {
+    fibonacci(n) {
+        if (n <= 1) return n;
+        return this.fibonacci(n - 1) + this.fibonacci(n - 2);
+    }
+}
+
+const calc = new Calculator();
+memoizeMethod(calc, 'fibonacci', 30000);
+```
+
+#### **Lazy Loading and Code Splitting**
+```javascript
+// Dynamic imports
+async function loadModule(moduleName) {
+    try {
+        const module = await import(`./modules/${moduleName}.js`);
+        return module;
+    } catch (error) {
+        console.error(`Failed to load module ${moduleName}:`, error);
+        throw error;
+    }
+}
+
+// Lazy loading components
+class LazyLoader {
+    constructor() {
+        this.loadedModules = new Map();
+    }
+
+    async loadComponent(componentName) {
+        if (this.loadedModules.has(componentName)) {
+            return this.loadedModules.get(componentName);
+        }
+
+        try {
+            const module = await import(`./components/${componentName}.js`);
+            this.loadedModules.set(componentName, module.default);
+            return module.default;
+        } catch (error) {
+            console.error(`Failed to load component ${componentName}:`, error);
+            throw error;
+        }
+    }
+
+    // Preload critical components
+    async preloadComponents(componentNames) {
+        const promises = componentNames.map(name => this.loadComponent(name));
+        return Promise.all(promises);
+    }
+}
+
+// Intersection Observer for lazy loading images
+class LazyImageLoader {
+    constructor() {
+        this.observer = new IntersectionObserver(
+            this.handleIntersection.bind(this),
+            {
+                rootMargin: '50px 0px',
+                threshold: 0.01
+            }
+        );
+    }
+
+    observe(image) {
+        this.observer.observe(image);
+    }
+
+    handleIntersection(entries) {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                this.loadImage(img);
+                this.observer.unobserve(img);
+            }
+        });
+    }
+
+    loadImage(img) {
+        const src = img.dataset.src;
+        if (src) {
+            img.src = src;
+            img.classList.remove('lazy');
+            img.classList.add('loaded');
+        }
+    }
+}
+
+// Usage
+const lazyLoader = new LazyImageLoader();
+
+// Observe all lazy images
+document.querySelectorAll('img[data-src]').forEach(img => {
+    lazyLoader.observe(img);
+});
+```
+
+### **Advanced Array and Object Methods**
+
+#### **Array Methods Deep Dive**
+```javascript
+// Advanced array operations
+const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// Group by
+function groupBy(array, keyFn) {
+    return array.reduce((groups, item) => {
+        const key = keyFn(item);
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(item);
+        return groups;
+    }, {});
+}
+
+const groupedByEvenOdd = groupBy(numbers, n => n % 2 === 0 ? 'even' : 'odd');
+// { even: [2, 4, 6, 8, 10], odd: [1, 3, 5, 7, 9] }
+
+// Chunk array
+function chunk(array, size) {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+}
+
+const chunked = chunk(numbers, 3);
+// [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
+
+// Shuffle array (Fisher-Yates algorithm)
+function shuffle(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+// Unique values
+function unique(array, keyFn = x => x) {
+    const seen = new Set();
+    return array.filter(item => {
+        const key = keyFn(item);
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+}
+
+// Intersection of arrays
+function intersection(...arrays) {
+    if (arrays.length === 0) return [];
+    if (arrays.length === 1) return [...arrays[0]];
+
+    const [first, ...rest] = arrays;
+    return first.filter(item =>
+        rest.every(arr => arr.includes(item))
+    );
+}
+
+// Union of arrays
+function union(...arrays) {
+    const set = new Set();
+    arrays.forEach(arr => {
+        arr.forEach(item => set.add(item));
+    });
+    return Array.from(set);
+}
+
+// Difference of arrays
+function difference(array1, array2) {
+    const set2 = new Set(array2);
+    return array1.filter(item => !set2.has(item));
+}
+
+// Advanced sorting
+const people = [
+    { name: 'Alice', age: 25, score: 85 },
+    { name: 'Bob', age: 30, score: 92 },
+    { name: 'Charlie', age: 25, score: 78 }
+];
+
+// Sort by multiple criteria
+people.sort((a, b) => {
+    // First by age ascending
+    if (a.age !== b.age) {
+        return a.age - b.age;
+    }
+    // Then by score descending
+    return b.score - a.score;
+});
+
+// Custom sort function
+function sortBy(array, ...criteria) {
+    return array.sort((a, b) => {
+        for (const criterion of criteria) {
+            const { key, order = 'asc' } = criterion;
+            const aVal = a[key];
+            const bVal = b[key];
+
+            let comparison = 0;
+            if (aVal < bVal) comparison = -1;
+            if (aVal > bVal) comparison = 1;
+
+            if (comparison !== 0) {
+                return order === 'desc' ? -comparison : comparison;
+            }
+        }
+        return 0;
+    });
+}
+
+const sorted = sortBy(people,
+    { key: 'age', order: 'asc' },
+    { key: 'score', order: 'desc' }
+);
+```
+
+#### **Advanced Object Operations**
+```javascript
+// Deep clone
+function deepClone(obj) {
+    if (obj === null || typeof obj !== 'object') {
+        return obj;
+    }
+
+    if (obj instanceof Date) {
+        return new Date(obj.getTime());
+    }
+
+    if (obj instanceof Array) {
+        return obj.map(item => deepClone(item));
+    }
+
+    if (typeof obj === 'object') {
+        const cloned = {};
+        Object.keys(obj).forEach(key => {
+            cloned[key] = deepClone(obj[key]);
+        });
+        return cloned;
+    }
+}
+
+// Deep merge
+function deepMerge(target, source) {
+    const result = { ...target };
+
+    Object.keys(source).forEach(key => {
+        if (source[key] && typeof source[key] === 'object' &&
+            target[key] && typeof target[key] === 'object') {
+            result[key] = deepMerge(target[key], source[key]);
+        } else {
+            result[key] = source[key];
+        }
+    });
+
+    return result;
+}
+
+// Object flattening
+function flattenObject(obj, prefix = '', result = {}) {
+    Object.keys(obj).forEach(key => {
+        const newKey = prefix ? `${prefix}.${key}` : key;
+
+        if (typeof obj[key] === 'object' && obj[key] !== null &&
+            !Array.isArray(obj[key])) {
+            flattenObject(obj[key], newKey, result);
+        } else {
+            result[newKey] = obj[key];
+        }
+    });
+
+    return result;
+}
+
+// Object unflattening
+function unflattenObject(obj) {
+    const result = {};
+
+    Object.keys(obj).forEach(key => {
+        const keys = key.split('.');
+        let current = result;
+
+        keys.forEach((k, index) => {
+            if (index === keys.length - 1) {
+                current[k] = obj[key];
+            } else {
+                current[k] = current[k] || {};
+                current = current[k];
+            }
+        });
+    });
+
+    return result;
+}
+
+// Object comparison
+function deepEqual(a, b) {
+    if (a === b) return true;
+
+    if (a == null || b == null) return false;
+
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (!deepEqual(a[i], b[i])) return false;
+        }
+        return true;
+    }
+
+    if (typeof a === 'object' && typeof b === 'object') {
+        const keysA = Object.keys(a);
+        const keysB = Object.keys(b);
+
+        if (keysA.length !== keysB.length) return false;
+
+        for (const key of keysA) {
+            if (!keysB.includes(key)) return false;
+            if (!deepEqual(a[key], b[key])) return false;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+// Object transformation
+function transformObject(obj, transformer) {
+    const result = {};
+
+    Object.keys(obj).forEach(key => {
+        const transformed = transformer(key, obj[key]);
+        if (transformed !== undefined) {
+            result[transformed.key || key] = transformed.value;
+        }
+    });
+
+    return result;
+}
+
+// Usage
+const transformed = transformObject(
+    { name: 'John', age: 30, email: 'john@example.com' },
+    (key, value) => {
+        if (key === 'email') {
+            return { key: 'contactEmail', value: value.toUpperCase() };
+        }
+        if (key === 'age') {
+            return undefined; // Exclude age
+        }
+        return { value };
+    }
+);
+// { name: 'John', contactEmail: 'JOHN@EXAMPLE.COM' }
+```
+
+### **Functional Programming Patterns**
+
+#### **Function Composition and Pipelines**
+```javascript
+// Function composition
+const compose = (...fns) => x => fns.reduceRight((acc, fn) => fn(acc), x);
+const pipe = (...fns) => x => fns.reduce((acc, fn) => fn(acc), x);
+
+// Example functions
+const add = x => x + 1;
+const multiply = x => x * 2;
+const square = x => x * x;
+
+// Composition (right to left)
+const complexCalc = compose(square, multiply, add);
+console.log(complexCalc(3)); // ((3 + 1) * 2)² = 32
+
+// Pipeline (left to right)
+const pipelineCalc = pipe(add, multiply, square);
+console.log(pipelineCalc(3)); // (3 + 1) * 2)² = 32
+
+// Advanced composition with error handling
+function safeCompose(...fns) {
+    return function(x) {
+        try {
+            return fns.reduceRight((acc, fn) => {
+                if (acc instanceof Error) return acc;
+                return fn(acc);
+            }, x);
+        } catch (error) {
+            return error;
+        }
+    };
+}
+
+// Currying utilities
+function curry(fn) {
+    return function curried(...args) {
+        if (args.length >= fn.length) {
+            return fn.apply(this, args);
+        } else {
+            return function(...moreArgs) {
+                return curried.apply(this, args.concat(moreArgs));
+            };
+        }
+    };
+}
+
+// Partial application
+function partial(fn, ...presetArgs) {
+    return function(...laterArgs) {
+        return fn(...presetArgs, ...laterArgs);
+    };
+}
+
+// Function memoization for pure functions
+function memoizePure(fn) {
+    const cache = new Map();
+
+    return function(...args) {
+        const key = JSON.stringify(args);
+
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+
+        const result = fn.apply(this, args);
+        cache.set(key, result);
+        return result;
+    };
+}
+
+// Pure function examples
+const pureAdd = (a, b) => a + b;
+const pureMultiply = (a, b) => a * b;
+const pureUppercase = str => str.toUpperCase();
+
+// Impure functions (avoid in functional programming)
+let counter = 0;
+const impureIncrement = () => ++counter; // Modifies external state
+
+// Pure version
+const pureIncrement = count => count + 1;
+
+// Functor implementation (Array as functor)
+Array.prototype.map = Array.prototype.map || function(fn) {
+    const result = [];
+    for (let i = 0; i < this.length; i++) {
+        result.push(fn(this[i], i, this));
+    }
+    return result;
+};
+
+// Custom functor
+class Maybe {
+    constructor(value) {
+        this.value = value;
+    }
+
+    static of(value) {
+        return new Maybe(value);
+    }
+
+    map(fn) {
+        return this.value == null
+            ? this
+            : Maybe.of(fn(this.value));
+    }
+
+    getOrElse(defaultValue) {
+        return this.value == null ? defaultValue : this.value;
+    }
+}
+
+// Usage
+const result = Maybe.of(5)
+    .map(x => x * 2)
+    .map(x => x + 10)
+    .getOrElse(0); // 20
+
+const nullResult = Maybe.of(null)
+    .map(x => x * 2)
+    .getOrElse(0); // 0
+```
+
+### **Advanced Asynchronous Patterns**
+
+#### **Async Utilities**
+```javascript
+// Async map
+async function asyncMap(array, asyncFn) {
+    const promises = array.map(asyncFn);
+    return Promise.all(promises);
+}
+
+// Async filter
+async function asyncFilter(array, asyncPredicate) {
+    const results = await asyncMap(array, asyncPredicate);
+    return array.filter((_, index) => results[index]);
+}
+
+// Async reduce
+async function asyncReduce(array, asyncReducer, initialValue) {
+    let accumulator = initialValue;
+
+    for (const item of array) {
+        accumulator = await asyncReducer(accumulator, item);
+    }
+
+    return accumulator;
+}
+
+// Async find
+async function asyncFind(array, asyncPredicate) {
+    for (const item of array) {
+        if (await asyncPredicate(item)) {
+            return item;
+        }
+    }
+    return undefined;
+}
+
+// Usage examples
+const urls = ['/api/users', '/api/posts', '/api/comments'];
+
+const fetchResults = await asyncMap(urls, async url => {
+    const response = await fetch(url);
+    return response.json();
+});
+
+const activeUsers = await asyncFilter(users, async user => {
+    const activity = await fetchUserActivity(user.id);
+    return activity.isActive;
+});
+
+// Retry mechanism
+async function retryAsync(fn, maxRetries = 3, delay = 1000) {
+    let lastError;
+
+    for (let i = 0; i <= maxRetries; i++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            if (i < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+            }
+        }
+    }
+
+    throw lastError;
+}
+
+// Timeout wrapper
+function withTimeout(promise, timeoutMs) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Operation timed out')), timeoutMs)
+        )
+    ]);
+}
+
+// Usage
+const result = await retryAsync(
+    () => withTimeout(fetch('/api/data'), 5000),
+    3,
+    1000
+);
+```
+
+#### **Advanced Promise Patterns**
+```javascript
+// Promise utilities
+class PromiseUtils {
+    static async timeout(delay) {
+        return new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    static async immediate() {
+        return new Promise(resolve => setImmediate(resolve));
+    }
+
+    static defer() {
+        let resolve, reject;
+        const promise = new Promise((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+
+        return { promise, resolve, reject };
+    }
+
+    static async delay(value, delay) {
+        await this.timeout(delay);
+        return value;
+    }
+}
+
+// Promise queue for rate limiting
+class PromiseQueue {
+    constructor(concurrency = 1) {
+        this.concurrency = concurrency;
+        this.running = 0;
+        this.queue = [];
+    }
+
+    async add(task) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({ task, resolve, reject });
+            this.process();
+        });
+    }
+
+    async process() {
+        if (this.running >= this.concurrency || this.queue.length === 0) {
+            return;
+        }
+
+        this.running++;
+        const { task, resolve, reject } = this.queue.shift();
+
+        try {
+            const result = await task();
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        } finally {
+            this.running--;
+            this.process();
+        }
+    }
+
+    get pending() {
+        return this.queue.length;
+    }
+
+    get active() {
+        return this.running;
+    }
+}
+
+// Usage
+const queue = new PromiseQueue(3); // Max 3 concurrent requests
+
+const results = await Promise.all([
+    queue.add(() => fetch('/api/1')),
+    queue.add(() => fetch('/api/2')),
+    queue.add(() => fetch('/api/3')),
+    queue.add(() => fetch('/api/4')),
+    queue.add(() => fetch('/api/5'))
+]);
+```
+
+### **JavaScript Engine Internals**
+
+#### **Event Loop and Microtasks**
+```javascript
+// Understanding event loop timing
+console.log('Start');
+
+setTimeout(() => {
+    console.log('setTimeout 1');
+}, 0);
+
+Promise.resolve().then(() => {
+    console.log('Promise 1');
+});
+
+setTimeout(() => {
+    console.log('setTimeout 2');
+}, 0);
+
+Promise.resolve().then(() => {
+    console.log('Promise 2');
+});
+
+// Output order:
+// Start
+// Promise 1
+// Promise 2
+// setTimeout 1
+// setTimeout 2
+
+// Microtask queue vs Macrotask queue
+function demonstrateEventLoop() {
+    console.log('Script start');
+
+    // Macrotasks
+    setTimeout(() => console.log('Macrotask 1'), 0);
+    setTimeout(() => console.log('Macrotask 2'), 0);
+
+    // Microtasks
+    Promise.resolve().then(() => console.log('Microtask 1'));
+    Promise.resolve().then(() => {
+        console.log('Microtask 2');
+        // Adding more microtasks
+        Promise.resolve().then(() => console.log('Nested microtask'));
+    });
+
+    // Another macrotask
+    setTimeout(() => console.log('Macrotask 3'), 0);
+
+    console.log('Script end');
+}
+
+// Call stack visualization
+function outer() {
+    console.log('Outer start');
+
+    function middle() {
+        console.log('Middle start');
+
+        function inner() {
+            console.log('Inner');
+        }
+
+        inner();
+        console.log('Middle end');
+    }
+
+    middle();
+    console.log('Outer end');
+}
+
+// Memory management
+function memoryDemo() {
+    // Stack memory (automatic cleanup)
+    function stackFunction() {
+        const localVar = 'This is on the stack';
+        return localVar;
+    }
+
+    // Heap memory (garbage collected)
+    const heapObject = {
+        data: new Array(1000000).fill('heap data'),
+        method: function() {
+            return this.data.length;
+        }
+    };
+
+    // Closure captures variables
+    function createClosure() {
+        const captured = 'Captured by closure';
+
+        return function() {
+            return captured;
+        };
+    }
+
+    const closure = createClosure();
+    // 'captured' variable is now in heap memory
+}
+```
+
+#### **V8 Engine Optimizations**
+```javascript
+// Help V8 optimize your code
+
+// 1. Use consistent types
+function addNumbers(a, b) {
+    // Always pass numbers to help V8 optimize
+    return a + b;
+}
+
+// Avoid:
+addNumbers(1, 2);      // Good
+addNumbers('1', '2');  // Bad - type confusion
+
+// 2. Avoid deoptimization triggers
+function processArray(arr) {
+    // Don't change array type during iteration
+    for (let i = 0; i < arr.length; i++) {
+        arr[i] = arr[i] * 2; // Consistent number operations
+    }
+    return arr;
+}
+
+// 3. Use monomorphic operations
+const objects = [
+    { type: 'user', name: 'John' },
+    { type: 'user', name: 'Jane' },
+    // Avoid mixing object shapes
+];
+
+// 4. Help with hidden classes
+function User(name, age) {
+    this.name = name;
+    this.age = age;
+}
+
+// Always initialize in same order
+const user1 = new User('John', 30);
+const user2 = new User('Jane', 25);
+
+// 5. Use typed arrays for performance
+const buffer = new ArrayBuffer(1024);
+const int32View = new Int32Array(buffer);
+
+// 6. Optimize object property access
+const obj = { a: 1, b: 2, c: 3 };
+
+// Fast property access
+console.log(obj.a);
+
+// Slow property access (avoid)
+const prop = 'a';
+console.log(obj[prop]);
+
+// 7. Use inline caching
+function getProperty(obj, prop) {
+    return obj[prop]; // V8 can optimize this
+}
+
+// 8. Avoid try-catch in hot paths
+function safeDivide(a, b) {
+    if (b === 0) return 0; // Check first
+    return a / b;
+}
+
+// 9. Use appropriate data structures
+// Use Map for frequent additions/deletions
+const map = new Map();
+
+// Use Set for unique values
+const set = new Set();
+
+// Use Array for ordered data
+const array = [];
+
+// 10. Profile and optimize bottlenecks
+function performanceTest() {
+    console.time('Operation');
+
+    // Your code here
+
+    console.timeEnd('Operation');
+}
+```
+
+## **17. JavaScript Ecosystem and Tooling**
+
+### **Build Tools and Bundlers**
+
+#### **Webpack Configuration**
+```javascript
+// webpack.config.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+
+module.exports = {
+    mode: process.env.NODE_ENV || 'development',
+    entry: {
+        main: './src/index.js',
+        vendor: ['react', 'react-dom']
+    },
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: '[name].[contenthash].js',
+        chunkFilename: '[name].[contenthash].chunk.js',
+        publicPath: '/'
+    },
+    module: {
+        rules: [
+            {
+                test: /\.js$/,
+                exclude: /node_modules/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env', '@babel/preset-react'],
+                        plugins: ['@babel/plugin-transform-runtime']
+                    }
+                }
+            },
+            {
+                test: /\.css$/,
+                use: [
+                    'style-loader',
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            modules: true,
+                            importLoaders: 1
+                        }
+                    },
+                    'postcss-loader'
+                ]
+            },
+            {
+                test: /\.(png|svg|jpg|jpeg|gif)$/i,
+                type: 'asset/resource',
+                generator: {
+                    filename: 'images/[hash][ext][query]'
+                }
+            }
+        ]
+    },
+    plugins: [
+        new CleanWebpackPlugin(),
+        new HtmlWebpackPlugin({
+            template: './src/index.html',
+            minify: {
+                removeComments: true,
+                collapseWhitespace: true
+            }
+        })
+    ],
+    optimization: {
+        splitChunks: {
+            chunks: 'all',
+            cacheGroups: {
+                vendor: {
+                    test: /[\\/]node_modules[\\/]/,
+                    name: 'vendors',
+                    chunks: 'all'
+                }
+            }
+        },
+        minimizer: [
+            new TerserPlugin({
+                terserOptions: {
+                    compress: {
+                        drop_console: true
+                    }
+                }
+            }),
+            new CssMinimizerPlugin()
+        ]
+    },
+    devServer: {
+        contentBase: path.join(__dirname, 'dist'),
+        compress: true,
+        port: 3000,
+        hot: true,
+        historyApiFallback: true
+    },
+    resolve: {
+        extensions: ['.js', '.jsx', '.json'],
+        alias: {
+            '@': path.resolve(__dirname, 'src'),
+            'components': path.resolve(__dirname, 'src/components')
+        }
+    }
+};
+```
+
+#### **Vite Configuration**
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+
+export default defineConfig({
+    plugins: [react()],
+    resolve: {
+        alias: {
+            '@': resolve(__dirname, './src'),
+            'components': resolve(__dirname, './src/components'),
+            'utils': resolve(__dirname, './src/utils')
+        }
+    },
+    build: {
+        outDir: 'dist',
+        sourcemap: true,
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom'],
+                    utils: ['lodash', 'moment']
+                }
+            }
+        }
+    },
+    server: {
+        port: 3000,
+        open: true,
+        cors: true
+    },
+    css: {
+        modules: {
+            localsConvention: 'camelCase'
+        },
+        preprocessorOptions: {
+            scss: {
+                additionalData: '@import "@/styles/variables.scss";'
+            }
+        }
+    },
+    define: {
+        __APP_VERSION__: JSON.stringify(process.env.npm_package_version)
+    }
+});
+```
+
+### **Testing Frameworks**
+
+#### **Jest Configuration**
+```javascript
+// jest.config.js
+module.exports = {
+    testEnvironment: 'jsdom',
+    setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
+    moduleNameMapping: {
+        '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+        '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/src/__mocks__/fileMock.js'
+    },
+    collectCoverageFrom: [
+        'src/**/*.{js,jsx,ts,tsx}',
+        '!src/index.js',
+        '!src/setupTests.js',
+        '!src/**/*.d.ts'
+    ],
+    coverageThreshold: {
+        global: {
+            branches: 80,
+            functions: 80,
+            lines: 80,
+            statements: 80
+        }
+    },
+    testMatch: [
+        '<rootDir>/src/**/__tests__/**/*.{js,jsx,ts,tsx}',
+        '<rootDir>/src/**/*.{test,spec}.{js,jsx,ts,tsx}'
+    ],
+    transform: {
+        '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest'
+    },
+    moduleDirectories: ['node_modules', 'src'],
+    testPathIgnorePatterns: ['/node_modules/', '/build/'],
+    watchPlugins: [
+        'jest-watch-typeahead/filename',
+        'jest-watch-typeahead/testname'
+    ]
+};
+```
+
+#### **Advanced Testing Patterns**
+```javascript
+// setupTests.js
+import '@testing-library/jest-dom';
+
+// Mock implementations
+global.fetch = jest.fn();
+global.matchMedia = jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn()
+}));
+
+// Custom matchers
+expect.extend({
+    toBeValidEmail(received) {
+        const pass = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(received);
+        return {
+            message: () => `expected ${received} to be a valid email`,
+            pass
+        };
+    }
+});
+
+// Test utilities
+export const createMockStore = (initialState = {}) => {
+    let state = { ...initialState };
+    const listeners = [];
+
+    return {
+        getState: () => state,
+        dispatch: (action) => {
+            state = reducer(state, action);
+            listeners.forEach(listener => listener());
+        },
+        subscribe: (listener) => {
+            listeners.push(listener);
+            return () => {
+                const index = listeners.indexOf(listener);
+                listeners.splice(index, 1);
+            };
+        }
+    };
+};
+
+// Async test utilities
+export const waitForAsync = (callback, timeout = 1000) => {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error('Async operation timed out'));
+        }, timeout);
+
+        const checkCondition = () => {
+            try {
+                if (callback()) {
+                    clearTimeout(timer);
+                    resolve();
+                } else {
+                    setTimeout(checkCondition, 10);
+                }
+            } catch (error) {
+                clearTimeout(timer);
+                reject(error);
+            }
+        };
+
+        checkCondition();
+    });
+};
+```
+
+## **18. Resources**
 
 - [MDN JavaScript Reference](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 - [JavaScript.info](https://javascript.info/)
 - [Eloquent JavaScript](https://eloquentjavascript.net/)
 - [JavaScript30](https://javascript30.com/) - Free 30-day challenge
+- [You Don't Know JS](https://github.com/getify/You-Dont-Know-JS) - Deep dive series
+- [JavaScript Patterns](https://www.patterns.dev/) - Modern patterns and practices
+- [V8 Engine Documentation](https://v8.dev/docs) - JavaScript engine internals
 
-## **17. Next Steps**
+## **19. Next Steps**
 
 In the next lesson, we'll explore backend development with Node.js. You'll learn about:
 - Server-side JavaScript
 - HTTP requests and responses
 - File system operations
 - Building REST APIs
+- Database integration
+- Authentication and security
+- Deployment and scaling
 
 Practice writing JavaScript code and experiment with different concepts to build your programming skills!
 
 ---
+
+This comprehensive JavaScript documentation covers everything from basic syntax to advanced concepts, modern ES6+ features, performance optimization, memory management, functional programming patterns, and the JavaScript ecosystem. The examples are production-ready and follow current best practices for professional JavaScript development.

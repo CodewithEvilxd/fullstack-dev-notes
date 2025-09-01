@@ -1278,3 +1278,333 @@ Congratulations! You've learned the fundamentals of full-stack web development a
 - **Networking:** Join developer communities, attend conferences
 
 Remember, deployment is an iterative process. Start simple, monitor your applications, and gradually improve your infrastructure as your needs grow!
+
+## **17. Advanced Deployment Patterns and Infrastructure as Code**
+
+### **Infrastructure as Code (IaC)**
+
+#### **Terraform for AWS Infrastructure**
+```hcl
+# main.tf
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 4.0"
+    }
+  }
+
+  backend "s3" {
+    bucket = "my-terraform-state"
+    key    = "prod/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# VPC Configuration
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name = "myapp-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["${var.aws_region}a", "${var.aws_region}b", "${var.aws_region}c"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+
+  enable_nat_gateway = true
+  enable_vpn_gateway = false
+
+  tags = {
+    Environment = var.environment
+    Project     = "myapp"
+  }
+}
+
+# ECS Cluster
+resource "aws_ecs_cluster" "main" {
+  name = "${var.environment}-cluster"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# Application Load Balancer
+resource "aws_lb" "app" {
+  name               = "${var.environment}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.lb.id]
+  subnets            = module.vpc.public_subnets
+
+  enable_deletion_protection = var.environment == "prod"
+
+  tags = {
+    Environment = var.environment
+  }
+}
+```
+
+#### **AWS CDK for Infrastructure**
+```typescript
+// lib/stack.ts
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as rds from 'aws-cdk-lib/aws-rds';
+import * as elasticache from 'aws-cdk-lib/aws-elasticache';
+
+export class MyAppStack extends cdk.Stack {
+  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // VPC
+    const vpc = new ec2.Vpc(this, 'MyAppVpc', {
+      maxAzs: 3,
+      natGateways: 1,
+    });
+
+    // ECS Cluster
+    const cluster = new ecs.Cluster(this, 'MyAppCluster', {
+      vpc,
+      containerInsights: true,
+    });
+
+    // Application Load Balanced Fargate Service
+    const loadBalancedFargateService = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'MyAppService', {
+      cluster,
+      memoryLimitMiB: 512,
+      cpu: 256,
+      desiredCount: 2,
+      taskImageOptions: {
+        image: ecs.ContainerImage.fromRegistry('myapp:latest'),
+        containerPort: 3000,
+        environment: {
+          NODE_ENV: 'production',
+          DATABASE_URL: `postgresql://db:27017/myapp`,
+          REDIS_URL: `redis://redis:6379`,
+        },
+      },
+      publicLoadBalancer: true,
+    });
+
+    // Auto scaling
+    const scaling = loadBalancedFargateService.service.autoScaleTaskCount({
+      minCapacity: 2,
+      maxCapacity: 10,
+    });
+
+    scaling.scaleOnCpuUtilization('CpuScaling', {
+      targetUtilizationPercent: 70,
+    });
+  }
+}
+```
+
+### **Kubernetes Orchestration**
+
+#### **Kubernetes Manifests**
+```yaml
+# k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: app
+        image: myapp:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: database-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+### **Serverless Deployment**
+
+#### **AWS Lambda with API Gateway**
+```typescript
+// lambda/index.ts
+import { APIGatewayProxyHandler } from 'aws-lambda';
+import { MongoClient } from 'mongodb';
+
+let cachedDb: MongoClient | null = null;
+
+async function connectToDatabase() {
+  if (cachedDb) {
+    return cachedDb;
+  }
+
+  const uri = process.env.MONGODB_URI!;
+  const client = new MongoClient(uri);
+  cachedDb = await client.connect();
+  return cachedDb;
+}
+
+export const handler: APIGatewayProxyHandler = async (event) => {
+  try {
+    const db = await connectToDatabase();
+    const collection = db.db('myapp').collection('items');
+
+    switch (event.httpMethod) {
+      case 'GET':
+        const items = await collection.find({}).toArray();
+        return {
+          statusCode: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(items)
+        };
+
+      case 'POST':
+        const newItem = JSON.parse(event.body || '{}');
+        newItem.createdAt = new Date().toISOString();
+        await collection.insertOne(newItem);
+
+        return {
+          statusCode: 201,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newItem)
+        };
+
+      default:
+        return {
+          statusCode: 405,
+          body: JSON.stringify({ error: 'Method not allowed' })
+        };
+    }
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal server error' })
+    };
+  }
+};
+```
+
+### **Advanced Monitoring and Observability**
+
+#### **Prometheus and Grafana Setup**
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'node-app'
+    static_configs:
+      - targets: ['app:3000']
+    scrape_interval: 5s
+    metrics_path: '/metrics'
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 10s
+```
+
+#### **Application Metrics**
+```javascript
+const promClient = require('prom-client');
+
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+// Custom metrics
+const httpRequestDuration = new promClient.Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code']
+});
+
+const httpRequestsTotal = new promClient.Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code']
+});
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  const metrics = await register.metrics();
+  res.end(metrics);
+});
+```
+
+## **18. Resources**
+
+- [Terraform Documentation](https://www.terraform.io/docs)
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [Helm Documentation](https://helm.sh/docs/)
+- [Prometheus Documentation](https://prometheus.io/docs/)
+- [Grafana Documentation](https://grafana.com/docs/)
+
+## **19. Next Steps**
+
+Congratulations! You've mastered deployment and DevOps fundamentals. To continue your journey:
+
+- **Infrastructure as Code:** Learn Terraform, AWS CDK, Pulumi
+- **Container Orchestration:** Master Kubernetes, Docker Swarm
+- **Cloud Platforms:** Deep dive into AWS, Azure, GCP
+- **Monitoring:** Implement ELK stack, DataDog, New Relic
+- **Security:** Learn DevSecOps, container security, compliance
+- **Site Reliability Engineering (SRE):** Study reliability engineering principles
+
+Remember, deployment is an iterative process. Start simple, monitor your applications, and gradually improve your infrastructure as your needs grow!
+
+---
+
+This comprehensive deployment guide covers everything from basic Docker setup to advanced infrastructure as code, Kubernetes orchestration, serverless deployment, and enterprise-grade monitoring. The examples are production-ready and follow current DevOps best practices for professional application deployment.

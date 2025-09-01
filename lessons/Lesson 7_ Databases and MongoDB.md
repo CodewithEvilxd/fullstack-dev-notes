@@ -1083,12 +1083,896 @@ mongodump --db mydatabase --out /path/to/backup
 mongorestore --db mydatabase /path/to/backup/mydatabase
 ```
 
+## **14. Advanced MongoDB Patterns and Architecture**
+
+### **Advanced Query Patterns and Optimization**
+
+#### **Complex Aggregation Pipelines**
+```javascript
+// Advanced aggregation with multiple stages
+async function getUserAnalytics(collection) {
+    const analytics = await collection.aggregate([
+        // Stage 1: Filter active users
+        {
+            $match: {
+                status: 'active',
+                createdAt: { $gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) } // Last year
+            }
+        },
+
+        // Stage 2: Add computed fields
+        {
+            $addFields: {
+                accountAge: {
+                    $divide: [
+                        { $subtract: [new Date(), '$createdAt'] },
+                        1000 * 60 * 60 * 24 // Convert to days
+                    ]
+                },
+                engagementScore: {
+                    $add: [
+                        { $multiply: ['$postCount', 2] },
+                        { $multiply: ['$commentCount', 1] },
+                        { $multiply: ['$likeCount', 0.5] }
+                    ]
+                }
+            }
+        },
+
+        // Stage 3: Group by age ranges
+        {
+            $group: {
+                _id: {
+                    $switch: {
+                        branches: [
+                            { case: { $lt: ['$accountAge', 30] }, then: '0-30 days' },
+                            { case: { $lt: ['$accountAge', 90] }, then: '30-90 days' },
+                            { case: { $lt: ['$accountAge', 365] }, then: '90-365 days' }
+                        ],
+                        default: '365+ days'
+                    }
+                },
+                users: { $push: '$$ROOT' },
+                count: { $sum: 1 },
+                avgEngagement: { $avg: '$engagementScore' },
+                totalPosts: { $sum: '$postCount' },
+                totalComments: { $sum: '$commentCount' }
+            }
+        },
+
+        // Stage 4: Sort and format
+        {
+            $sort: { count: -1 }
+        },
+
+        // Stage 5: Reshape output
+        {
+            $project: {
+                _id: 0,
+                ageGroup: '$_id',
+                userCount: '$count',
+                averageEngagement: { $round: ['$avgEngagement', 2] },
+                totalActivity: { $add: ['$totalPosts', '$totalComments'] },
+                topUsers: { $slice: ['$users', 3] }
+            }
+        }
+    ]).toArray();
+
+    return analytics;
+}
+
+// Real-time analytics with change streams
+async function watchUserActivity(collection) {
+    const changeStream = collection.watch([
+        {
+            $match: {
+                'operationType': { $in: ['insert', 'update', 'delete'] }
+            }
+        }
+    ]);
+
+    changeStream.on('change', (change) => {
+        console.log('User activity detected:', change.operationType);
+
+        switch (change.operationType) {
+            case 'insert':
+                console.log('New user created:', change.fullDocument.name);
+                break;
+            case 'update':
+                const updatedFields = change.updateDescription.updatedFields;
+                if (updatedFields.lastLogin) {
+                    console.log('User logged in:', change.documentKey._id);
+                }
+                break;
+            case 'delete':
+                console.log('User deleted:', change.documentKey._id);
+                break;
+        }
+    });
+
+    return changeStream;
+}
+
+// Geospatial queries for location-based features
+async function findNearbyUsers(collection, longitude, latitude, maxDistance = 10000) {
+    const users = await collection.find({
+        location: {
+            $near: {
+                $geometry: {
+                    type: 'Point',
+                    coordinates: [longitude, latitude]
+                },
+                $maxDistance: maxDistance
+            }
+        },
+        status: 'active'
+    }).limit(20).toArray();
+
+    return users;
+}
+
+// Text search with scoring and highlighting
+async function searchContent(collection, query, options = {}) {
+    const {
+        limit = 10,
+        skip = 0,
+        sort = 'score',
+        highlight = true
+    } = options;
+
+    const pipeline = [
+        {
+            $search: {
+                text: {
+                    query: query,
+                    path: ['title', 'content', 'tags'],
+                    fuzzy: { maxEdits: 1 }
+                }
+            }
+        },
+        {
+            $addFields: {
+                score: { $meta: 'searchScore' }
+            }
+        },
+        {
+            $sort: { score: -1 }
+        },
+        {
+            $skip: skip
+        },
+        {
+            $limit: limit
+        }
+    ];
+
+    if (highlight) {
+        pipeline.splice(1, 0, {
+            $addFields: {
+                highlights: { $meta: 'searchHighlights' }
+            }
+        });
+    }
+
+    const results = await collection.aggregate(pipeline).toArray();
+    return results;
+}
+```
+
+#### **Advanced Indexing Strategies**
+```javascript
+// Compound indexes for complex queries
+async function createOptimizedIndexes(collection) {
+    // Compound index for user posts sorted by date
+    await collection.createIndex(
+        { userId: 1, createdAt: -1 },
+        { name: 'user_posts_date' }
+    );
+
+    // Partial index for active users only
+    await collection.createIndex(
+        { email: 1 },
+        {
+            name: 'active_users_email',
+            partialFilterExpression: { status: 'active' }
+        }
+    );
+
+    // Text index with weights
+    await collection.createIndex(
+        { title: 'text', content: 'text', tags: 'text' },
+        {
+            name: 'content_search',
+            weights: { title: 10, content: 5, tags: 3 }
+        }
+    );
+
+    // Geospatial index for location queries
+    await collection.createIndex(
+        { location: '2dsphere' },
+        { name: 'location_2dsphere' }
+    );
+
+    // TTL index for automatic document expiration
+    await collection.createIndex(
+        { createdAt: 1 },
+        {
+            name: 'session_ttl',
+            expireAfterSeconds: 24 * 60 * 60 // 24 hours
+        }
+    );
+
+    // Unique compound index
+    await collection.createIndex(
+        { email: 1, organizationId: 1 },
+        {
+            name: 'unique_email_org',
+            unique: true
+        }
+    );
+
+    // Sparse index for optional fields
+    await collection.createIndex(
+        { phoneNumber: 1 },
+        {
+            name: 'phone_sparse',
+            sparse: true
+        }
+    );
+}
+
+// Index performance monitoring
+async function analyzeIndexUsage(collection) {
+    const indexStats = await collection.aggregate([
+        { $indexStats: {} }
+    ]).toArray();
+
+    const analysis = indexStats.map(stat => ({
+        name: stat.name,
+        usageCount: stat.accesses?.ops || 0,
+        since: stat.accesses?.since || null,
+        size: stat.size || 0
+    }));
+
+    return analysis;
+}
+
+// Query plan analysis
+async function analyzeQueryPerformance(collection, query) {
+    const explain = await collection.find(query).explain('executionStats');
+
+    return {
+        executionTime: explain.executionStats.executionTimeMillis,
+        documentsExamined: explain.executionStats.totalDocsExamined,
+        documentsReturned: explain.executionStats.totalDocsReturned,
+        indexesUsed: explain.executionStats.winningPlan?.inputStage?.indexName || 'No index',
+        isIndexUsed: explain.executionStats.winningPlan?.inputStage?.stage === 'IXSCAN'
+    };
+}
+```
+
+### **Data Modeling and Schema Design Patterns**
+
+#### **Polymorphic Collections**
+```javascript
+// Base schema for polymorphic collection
+const eventSchema = {
+    _id: ObjectId,
+    type: String, // 'user_login', 'post_created', 'comment_added', etc.
+    actor: {
+        id: ObjectId,
+        type: String, // 'user', 'system', 'admin'
+        name: String
+    },
+    target: {
+        id: ObjectId,
+        type: String, // 'user', 'post', 'comment'
+        title: String // Optional, for display
+    },
+    metadata: Object, // Type-specific data
+    timestamp: Date,
+    ip: String,
+    userAgent: String
+};
+
+// Event creation helpers
+function createUserLoginEvent(user, ip, userAgent) {
+    return {
+        type: 'user_login',
+        actor: {
+            id: user._id,
+            type: 'user',
+            name: user.name
+        },
+        metadata: {
+            loginMethod: 'email',
+            deviceType: getDeviceType(userAgent)
+        },
+        timestamp: new Date(),
+        ip,
+        userAgent
+    };
+}
+
+function createPostCreatedEvent(user, post) {
+    return {
+        type: 'post_created',
+        actor: {
+            id: user._id,
+            type: 'user',
+            name: user.name
+        },
+        target: {
+            id: post._id,
+            type: 'post',
+            title: post.title
+        },
+        metadata: {
+            wordCount: post.content.split(' ').length,
+            tags: post.tags
+        },
+        timestamp: new Date()
+    };
+}
+
+// Query polymorphic data
+async function getUserActivity(collection, userId, limit = 20) {
+    const activities = await collection.find({
+        'actor.id': new ObjectId(userId)
+    })
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray();
+
+    return activities;
+}
+
+async function getRecentActivities(collection, types = [], limit = 50) {
+    const query = types.length > 0 ? { type: { $in: types } } : {};
+
+    const activities = await collection.find(query)
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .toArray();
+
+    return activities;
+}
+```
+
+#### **Time Series Collections**
+```javascript
+// Create time series collection
+async function createTimeSeriesCollection(db) {
+    await db.createCollection('sensor_readings', {
+        timeseries: {
+            timeField: 'timestamp',
+            metaField: 'sensorId',
+            granularity: 'minutes' // 'seconds', 'minutes', 'hours'
+        }
+    });
+
+    // Create indexes for efficient queries
+    await db.collection('sensor_readings').createIndex({
+        'sensorId': 1,
+        'timestamp': 1
+    });
+}
+
+// Insert time series data
+async function insertSensorReading(collection, sensorId, value, metadata = {}) {
+    const reading = {
+        sensorId,
+        timestamp: new Date(),
+        value,
+        ...metadata
+    };
+
+    await collection.insertOne(reading);
+    return reading;
+}
+
+// Query time series data with aggregation
+async function getSensorStats(collection, sensorId, startDate, endDate) {
+    const stats = await collection.aggregate([
+        {
+            $match: {
+                sensorId,
+                timestamp: {
+                    $gte: startDate,
+                    $lte: endDate
+                }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    sensorId: '$sensorId',
+                    hour: {
+                        $dateToString: {
+                            format: '%Y-%m-%d %H:00:00',
+                            date: '$timestamp'
+                        }
+                    }
+                },
+                readings: { $push: '$value' },
+                count: { $sum: 1 },
+                avgValue: { $avg: '$value' },
+                minValue: { $min: '$value' },
+                maxValue: { $max: '$value' }
+            }
+        },
+        {
+            $sort: { '_id.hour': 1 }
+        }
+    ]).toArray();
+
+    return stats;
+}
+
+// Downsampling for long-term storage
+async function downsampleSensorData(collection, sensorId, interval = '1h') {
+    const pipeline = [
+        {
+            $match: {
+                sensorId,
+                timestamp: {
+                    $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+                }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    sensorId: '$sensorId',
+                    interval: {
+                        $dateTrunc: {
+                            date: '$timestamp',
+                            unit: interval,
+                            binSize: 1
+                        }
+                    }
+                },
+                avgValue: { $avg: '$value' },
+                minValue: { $min: '$value' },
+                maxValue: { $max: '$value' },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $project: {
+                sensorId: '$_id.sensorId',
+                timestamp: '$_id.interval',
+                avgValue: 1,
+                minValue: 1,
+                maxValue: 1,
+                count: 1,
+                _id: 0
+            }
+        },
+        {
+            $out: 'sensor_readings_downsampled'
+        }
+    ];
+
+    await collection.aggregate(pipeline).toArray();
+}
+```
+
+### **Advanced Security and Encryption**
+
+#### **Field-Level Encryption**
+```javascript
+const { MongoClient, ClientEncryption } = require('mongodb');
+
+// Configure encryption
+async function setupEncryption() {
+    const kmsProviders = {
+        local: {
+            key: Buffer.from(process.env.LOCAL_MASTER_KEY, 'base64')
+        }
+    };
+
+    const client = new MongoClient(process.env.MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    });
+
+    await client.connect();
+
+    // Create encryption client
+    const encryption = new ClientEncryption(client, {
+        keyVaultNamespace: 'encryption.__keyVault',
+        kmsProviders
+    });
+
+    // Create data encryption keys
+    const dataKey1 = await encryption.createDataKey('local');
+    const dataKey2 = await encryption.createDataKey('local');
+
+    return { client, encryption, dataKey1, dataKey2 };
+}
+
+// Encrypt sensitive fields
+async function encryptUserData(encryption, dataKey, userData) {
+    const encryptedSSN = await encryption.encrypt(
+        userData.ssn,
+        {
+            algorithm: 'AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic',
+            keyId: dataKey
+        }
+    );
+
+    const encryptedEmail = await encryption.encrypt(
+        userData.email,
+        {
+            algorithm: 'AEAD_AES_256_CBC_HMAC_SHA_512-Random',
+            keyId: dataKey
+        }
+    );
+
+    return {
+        ...userData,
+        ssn: encryptedSSN,
+        email: encryptedEmail
+    };
+}
+
+// Automatic encryption/decryption with MongoDB client
+async function createEncryptedClient() {
+    const kmsProviders = {
+        local: {
+            key: Buffer.from(process.env.LOCAL_MASTER_KEY, 'base64')
+        }
+    };
+
+    const client = new MongoClient(process.env.MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        autoEncryption: {
+            keyVaultNamespace: 'encryption.__keyVault',
+            kmsProviders,
+            schemaMap: {
+                'medical.patients': {
+                    bsonType: 'object',
+                    properties: {
+                        ssn: {
+                            encrypt: {
+                                algorithm: 'AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic',
+                                keyId: '/key1'
+                            }
+                        },
+                        medicalHistory: {
+                            encrypt: {
+                                algorithm: 'AEAD_AES_256_CBC_HMAC_SHA_512-Random',
+                                keyId: '/key2'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    await client.connect();
+    return client;
+}
+```
+
+#### **Role-Based Access Control (RBAC)**
+```javascript
+// Define roles and permissions
+const ROLES = {
+    ADMIN: 'admin',
+    MODERATOR: 'moderator',
+    USER: 'user',
+    GUEST: 'guest'
+};
+
+const PERMISSIONS = {
+    READ_USERS: 'read:users',
+    WRITE_USERS: 'write:users',
+    DELETE_USERS: 'delete:users',
+    READ_POSTS: 'read:posts',
+    WRITE_POSTS: 'write:posts',
+    DELETE_POSTS: 'delete:posts',
+    MODERATE_CONTENT: 'moderate:content'
+};
+
+const ROLE_PERMISSIONS = {
+    [ROLES.ADMIN]: [
+        PERMISSIONS.READ_USERS,
+        PERMISSIONS.WRITE_USERS,
+        PERMISSIONS.DELETE_USERS,
+        PERMISSIONS.READ_POSTS,
+        PERMISSIONS.WRITE_POSTS,
+        PERMISSIONS.DELETE_POSTS,
+        PERMISSIONS.MODERATE_CONTENT
+    ],
+    [ROLES.MODERATOR]: [
+        PERMISSIONS.READ_USERS,
+        PERMISSIONS.READ_POSTS,
+        PERMISSIONS.WRITE_POSTS,
+        PERMISSIONS.DELETE_POSTS,
+        PERMISSIONS.MODERATE_CONTENT
+    ],
+    [ROLES.USER]: [
+        PERMISSIONS.READ_USERS,
+        PERMISSIONS.READ_POSTS,
+        PERMISSIONS.WRITE_POSTS
+    ],
+    [ROLES.GUEST]: [
+        PERMISSIONS.READ_POSTS
+    ]
+};
+
+// Permission checking utility
+class PermissionChecker {
+    constructor(userRole) {
+        this.userRole = userRole;
+        this.userPermissions = ROLE_PERMISSIONS[userRole] || [];
+    }
+
+    hasPermission(permission) {
+        return this.userPermissions.includes(permission);
+    }
+
+    hasAnyPermission(permissions) {
+        return permissions.some(permission => this.hasPermission(permission));
+    }
+
+    hasAllPermissions(permissions) {
+        return permissions.every(permission => this.hasPermission(permission));
+    }
+
+    canRead(resource) {
+        return this.hasPermission(`read:${resource}`);
+    }
+
+    canWrite(resource) {
+        return this.hasPermission(`write:${resource}`);
+    }
+
+    canDelete(resource) {
+        return this.hasPermission(`delete:${resource}`);
+    }
+}
+
+// MongoDB query filtering based on permissions
+function createPermissionFilter(userRole, resource) {
+    const checker = new PermissionChecker(userRole);
+
+    if (!checker.canRead(resource)) {
+        // Return a filter that matches nothing
+        return { _id: null };
+    }
+
+    // Add role-based filters
+    const baseFilter = {};
+
+    if (userRole === ROLES.USER) {
+        // Users can only see their own data or public data
+        baseFilter.$or = [
+            { ownerId: userId },
+            { visibility: 'public' }
+        ];
+    }
+
+    return baseFilter;
+}
+
+// Middleware for permission checking
+function requirePermission(permission) {
+    return (req, res, next) => {
+        const userRole = req.user?.role;
+        const checker = new PermissionChecker(userRole);
+
+        if (!checker.hasPermission(permission)) {
+            return res.status(403).json({
+                error: 'Insufficient permissions',
+                required: permission,
+                userRole: userRole
+            });
+        }
+
+        next();
+    };
+}
+
+// Usage in routes
+app.get('/api/users',
+    authenticateToken,
+    requirePermission(PERMISSIONS.READ_USERS),
+    async (req, res) => {
+        const filter = createPermissionFilter(req.user.role, 'users');
+        const users = await User.find(filter);
+        res.json(users);
+    }
+);
+
+app.post('/api/posts',
+    authenticateToken,
+    requirePermission(PERMISSIONS.WRITE_POSTS),
+    async (req, res) => {
+        const post = new Post({
+            ...req.body,
+            authorId: req.user.id
+        });
+        await post.save();
+        res.status(201).json(post);
+    }
+);
+```
+
+### **Performance Monitoring and Optimization**
+
+#### **Database Performance Monitoring**
+```javascript
+// Connection pool monitoring
+function monitorConnectionPool(client) {
+    setInterval(() => {
+        const poolStats = {
+            totalConnections: client.topology.s?.pool?.totalConnectionCount || 0,
+            availableConnections: client.topology.s?.pool?.availableConnectionCount || 0,
+            pendingConnections: client.topology.s?.pool?.pendingConnectionCount || 0,
+            borrowedConnections: client.topology.s?.pool?.borrowedConnectionCount || 0
+        };
+
+        console.log('Connection Pool Stats:', poolStats);
+
+        // Alert if pool is heavily utilized
+        if (poolStats.availableConnections < 2) {
+            console.warn('Low available connections in pool!');
+        }
+    }, 30000); // Check every 30 seconds
+}
+
+// Query performance monitoring
+async function monitorQueryPerformance(collection, operation, ...args) {
+    const startTime = Date.now();
+
+    try {
+        const result = await collection[operation](...args);
+        const duration = Date.now() - startTime;
+
+        // Log slow queries
+        if (duration > 1000) { // More than 1 second
+            console.warn(`Slow query detected: ${operation} took ${duration}ms`);
+        }
+
+        return result;
+    } catch (error) {
+        const duration = Date.now() - startTime;
+        console.error(`Query error in ${operation}: ${error.message} (${duration}ms)`);
+        throw error;
+    }
+}
+
+// Database profiling
+async function enableProfiling(db, level = 2, slowMs = 100) {
+    // level: 0=off, 1=slow queries only, 2=all queries
+    await db.setProfilingLevel(level, { slowms: slowMs });
+
+    console.log(`Database profiling enabled (level: ${level}, slowMs: ${slowMs})`);
+}
+
+// Get profiling data
+async function getProfilingData(db, limit = 10) {
+    const profilingData = await db.collection('system.profile')
+        .find({})
+        .sort({ ts: -1 })
+        .limit(limit)
+        .toArray();
+
+    return profilingData.map(doc => ({
+        operation: doc.op,
+        collection: doc.ns,
+        duration: doc.millis,
+        timestamp: doc.ts,
+        query: doc.query,
+        planSummary: doc.planSummary
+    }));
+}
+
+// Index usage analysis
+async function analyzeIndexUsage(db) {
+    const collections = await db.listCollections().toArray();
+
+    for (const collection of collections) {
+        const coll = db.collection(collection.name);
+        const indexes = await coll.listIndexes().toArray();
+
+        for (const index of indexes) {
+            const stats = await coll.aggregate([
+                { $indexStats: { name: index.name } }
+            ]).toArray();
+
+            if (stats.length > 0) {
+                const usage = stats[0];
+                console.log(`Index ${index.name} in ${collection.name}:`);
+                console.log(`  - Accesses: ${usage.accesses?.ops || 0}`);
+                console.log(`  - Size: ${usage.size || 0} bytes`);
+            }
+        }
+    }
+}
+
+// Memory usage monitoring
+function monitorMemoryUsage() {
+    setInterval(() => {
+        const memUsage = process.memoryUsage();
+
+        console.log('Memory Usage:');
+        console.log(`  RSS: ${Math.round(memUsage.rss / 1024 / 1024)} MB`);
+        console.log(`  Heap Used: ${Math.round(memUsage.heapUsed / 1024 / 1024)} MB`);
+        console.log(`  Heap Total: ${Math.round(memUsage.heapTotal / 1024 / 1024)} MB`);
+        console.log(`  External: ${Math.round(memUsage.external / 1024 / 1024)} MB`);
+
+        // Alert if heap usage is high
+        const heapUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+        if (heapUsagePercent > 80) {
+            console.warn(`High heap usage: ${heapUsagePercent.toFixed(1)}%`);
+        }
+    }, 60000); // Check every minute
+}
+
+// Database health check
+async function performHealthCheck(db) {
+    const health = {
+        timestamp: new Date(),
+        status: 'unknown',
+        checks: {}
+    };
+
+    try {
+        // Check database connectivity
+        const pingResult = await db.admin().ping();
+        health.checks.connectivity = {
+            status: 'pass',
+            responseTime: pingResult.ok ? 'OK' : 'Failed'
+        };
+
+        // Check replica set status (if applicable)
+        try {
+            const replStatus = await db.admin().replSetGetStatus();
+            health.checks.replication = {
+                status: 'pass',
+                members: replStatus.members.length,
+                primary: replStatus.members.find(m => m.state === 1)?.name
+            };
+        } catch (error) {
+            health.checks.replication = {
+                status: 'not_applicable',
+                message: 'Not a replica set'
+            };
+        }
+
+        // Check collection counts
+        const collections = await db.listCollections().toArray();
+        health.checks.collections = {
+            status: 'pass',
+            count: collections.length
+        };
+
+        health.status = 'healthy';
+
+    } catch (error) {
+        health.status = 'unhealthy';
+        health.error = error.message;
+    }
+
+    return health;
+}
+```
+
 ## **14. Resources**
 
 - [MongoDB Official Documentation](https://docs.mongodb.com/)
 - [MongoDB University](https://university.mongodb.com/)
 - [MongoDB Manual](https://docs.mongodb.com/manual/)
 - [MongoDB Node.js Driver](https://docs.mongodb.com/drivers/node/)
+- [MongoDB Atlas](https://www.mongodb.com/atlas)
+- [MongoDB Security Best Practices](https://docs.mongodb.com/manual/security/)
+- [MongoDB Performance Best Practices](https://docs.mongodb.com/manual/performance/)
 
 ## **15. Next Steps**
 
@@ -1101,3 +1985,5 @@ In the next lesson, we'll explore Mongoose, an ODM (Object Data Modeling) librar
 Practice working with MongoDB and experiment with different query patterns to strengthen your database skills!
 
 ---
+
+This comprehensive MongoDB documentation covers everything from basic CRUD operations to advanced patterns like aggregation pipelines, geospatial queries, time series collections, field-level encryption, RBAC, and performance monitoring. The examples are production-ready and follow current best practices for professional MongoDB development.

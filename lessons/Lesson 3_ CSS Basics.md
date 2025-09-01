@@ -1580,4 +1580,794 @@ function Component() {
     grid-column: 1 / -1;
     grid-row: 1;
     display: grid;
-    grid-template-columns: 1
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+}
+
+.magazine-main {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.article-card {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.article-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.article-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.article-content {
+    padding: 20px;
+}
+
+.article-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.article-excerpt {
+    color: #666;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+.article-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    color: #888;
+}
+
+.magazine-sidebar {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.sidebar-widget {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.widget-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.magazine-footer {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .magazine-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .magazine-header {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .magazine-main {
+        grid-column: 1;
+        grid-row: 2;
+        grid-template-columns: 1fr;
+    }
+
+    .magazine-sidebar {
+        grid-column: 1;
+        grid-row: 3;
+    }
+
+    .magazine-footer {
+        grid-column: 1;
+        grid-row: 4;
+    }
+}
+
+/* Print styles */
+@media print {
+    .magazine-layout {
+        display: block;
+    }
+
+    .article-card {
+        break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+}
+```
+
+## **11. Advanced CSS Features**
+
+### **CSS Houdini - Next Generation CSS**
+
+#### **CSS Properties and Values API**
+```css
+/* Register custom CSS properties */
+CSS.registerProperty({
+    name: '--my-color',
+    syntax: '<color>',
+    initialValue: 'black',
+    inherits: true
+});
+
+CSS.registerProperty({
+    name: '--my-length',
+    syntax: '<length>',
+    initialValue: '0px',
+    inherits: false
+});
+
+/* Use custom properties */
+.element {
+    --my-color: red;
+    --my-length: 20px;
+    color: var(--my-color);
+    margin: var(--my-length);
+    transition: --my-color 0.3s ease;
+}
+
+.element:hover {
+    --my-color: blue;
+}
+```
+
+#### **CSS Painting API**
+```javascript
+// custom-painter.js
+class MyPainter {
+    static get inputProperties() {
+        return ['--my-color', '--my-size'];
+    }
+
+    paint(ctx, geom, properties) {
+        const color = properties.get('--my-color').toString();
+        const size = parseInt(properties.get('--my-size').toString());
+
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, size, size);
+    }
+}
+
+// Register the painter
+registerPaint('myPainter', MyPainter);
+```
+
+```css
+/* Use the custom painter */
+.element {
+    --my-color: red;
+    --my-size: 100px;
+    background-image: paint(myPainter);
+}
+```
+
+### **CSS Containment**
+```css
+/* Layout containment - isolates element from document flow */
+.contained-layout {
+    contain: layout;
+}
+
+/* Style containment - isolates style calculations */
+.contained-style {
+    contain: style;
+}
+
+/* Paint containment - creates stacking context */
+.contained-paint {
+    contain: paint;
+}
+
+/* Size containment - prevents size changes from affecting ancestors */
+.contained-size {
+    contain: size;
+}
+
+/* Content containment - combines layout and style */
+.contained-content {
+    contain: content;
+}
+
+/* Strict containment - isolates completely */
+.contained-strict {
+    contain: strict;
+}
+```
+
+### **CSS Scroll Snap**
+```css
+/* Scroll container */
+.scroll-container {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+}
+
+/* Snap points */
+.scroll-section {
+    height: 100vh;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+/* Horizontal scroll snap */
+.horizontal-scroll {
+    width: 100%;
+    height: 300px;
+    overflow-x: scroll;
+    scroll-snap-type: x proximity;
+    scroll-behavior: smooth;
+}
+
+.horizontal-item {
+    width: 300px;
+    height: 300px;
+    flex-shrink: 0;
+    scroll-snap-align: center;
+}
+```
+
+### **CSS Writing Modes**
+```css
+/* Vertical writing */
+.vertical-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+
+/* Horizontal writing (default) */
+.horizontal-text {
+    writing-mode: horizontal-tb;
+}
+
+/* Vertical with upright text */
+.vertical-upright {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+}
+
+/* Sideways text */
+.sideways-text {
+    writing-mode: horizontal-tb;
+    text-orientation: sideways;
+}
+```
+
+## **12. CSS Performance Optimization**
+
+### **GPU Acceleration**
+```css
+/* Force GPU acceleration */
+.accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+}
+
+/* Optimize animations */
+.smooth-animation {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* Reset after animation */
+.smooth-animation:not(:hover) {
+    will-change: auto;
+}
+```
+
+### **Font Loading Optimization**
+```css
+/* Font display strategies */
+@font-face {
+    font-family: 'Inter';
+    src: url('inter.woff2') format('woff2');
+    font-display: swap; /* Show fallback, swap when loaded */
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('inter.woff2') format('woff2');
+    font-display: optional; /* Use fallback if not loaded quickly */
+}
+
+@font-face {
+    font-family: 'Inter';
+    src: url('inter.woff2') format('woff2');
+    font-display: fallback; /* Brief invisible period, then fallback */
+}
+
+/* Preload critical fonts */
+<link rel="preload" href="inter.woff2" as="font" type="font/woff2" crossorigin>
+```
+
+### **CSS Code Splitting**
+```html
+<!-- Critical CSS inline -->
+<style>
+    /* Above-the-fold styles */
+    .hero { background: #007bff; color: white; }
+    .nav { position: fixed; top: 0; }
+</style>
+
+<!-- Non-critical CSS async -->
+<link rel="preload" href="styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="styles.css"></noscript>
+```
+
+### **CSS Performance Best Practices**
+```css
+/* Avoid expensive selectors */
+.slow-selector * .deeply .nested .selector { } /* Bad */
+.simple-class { } /* Good */
+
+/* Use transform instead of changing layout properties */
+.element {
+    transform: translateX(100px); /* GPU accelerated */
+    left: 100px; /* Causes layout recalculation */
+}
+
+/* Minimize repaints and reflows */
+.efficient-updates {
+    transform: translateX(var(--position));
+    opacity: var(--opacity);
+}
+
+/* Use CSS containment */
+.isolated-component {
+    contain: layout style paint;
+}
+```
+
+## **13. Modern CSS Architecture**
+
+### **CSS-in-JS with Emotion**
+```javascript
+import { css, keyframes } from '@emotion/react';
+import styled from '@emotion/styled';
+
+const fadeIn = keyframes`
+    from { opacity: 0; }
+    to { opacity: 1; }
+`;
+
+const Button = styled.button`
+    background: ${props => props.primary ? '#007bff' : '#6c757d'};
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    animation: ${fadeIn} 0.5s ease-in;
+
+    &:hover {
+        background: ${props => props.primary ? '#0056b3' : '#545b62'};
+    }
+
+    ${props => props.size === 'large' && css`
+        padding: 15px 30px;
+        font-size: 1.2rem;
+    `}
+`;
+
+const dynamicStyles = css`
+    color: ${props => props.color};
+    font-size: ${props => props.size}px;
+`;
+```
+
+### **CSS Modules with React**
+```css
+/* Button.module.css */
+.button {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.button:hover {
+    background: var(--primary-hover);
+}
+
+.primary {
+    composes: button;
+    background: #007bff;
+}
+
+.secondary {
+    composes: button;
+    background: #6c757d;
+}
+
+.large {
+    padding: 15px 30px;
+    font-size: 1.2rem;
+}
+```
+
+```javascript
+import styles from './Button.module.css';
+
+function Button({ variant, size, children }) {
+    const className = [
+        styles.button,
+        styles[variant],
+        size && styles[size]
+    ].filter(Boolean).join(' ');
+
+    return (
+        <button className={className}>
+            {children}
+        </button>
+    );
+}
+```
+
+### **PostCSS and Autoprefixing**
+```javascript
+// postcss.config.js
+module.exports = {
+    plugins: [
+        require('autoprefixer')({
+            grid: true, // Enable grid autoprefixing
+            flexbox: 'no-2009' // Avoid old flexbox syntax
+        }),
+        require('postcss-preset-env')({
+            stage: 1, // Enable modern CSS features
+            autoprefixer: { grid: true },
+            features: {
+                'custom-properties': true,
+                'nesting-rules': true
+            }
+        }),
+        require('cssnano')({
+            preset: 'default'
+        })
+    ]
+};
+```
+
+### **CSS Architecture Patterns**
+
+#### **ITCSS (Inverted Triangle CSS)**
+```css
+/* Settings - Global configuration */
+:root {
+    --color-primary: #007bff;
+    --font-size-base: 16px;
+}
+
+/* Tools - Mixins and functions */
+@import 'tools/mixins.css';
+@import 'tools/functions.css';
+
+/* Generic - Reset and normalize */
+@import 'generic/reset.css';
+@import 'generic/normalize.css';
+
+/* Elements - Base HTML elements */
+@import 'elements/headings.css';
+@import 'elements/links.css';
+
+/* Objects - Design patterns */
+@import 'objects/grid.css';
+@import 'objects/container.css';
+
+/* Components - UI components */
+@import 'components/button.css';
+@import 'components/card.css';
+
+/* Utilities - Helper classes */
+@import 'utilities/spacing.css';
+@import 'utilities/text.css';
+```
+
+#### **CUBE CSS**
+```css
+/* Composition - Layout and structure */
+.layout-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* Utilities - Single-purpose classes */
+.text-center { text-align: center; }
+.bg-primary { background: var(--color-primary); }
+.p-4 { padding: 1rem; }
+
+/* Exceptions - Component-specific overrides */
+.card--featured {
+    border: 2px solid var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+```
+
+## **14. CSS Debugging and Development Tools**
+
+### **CSS Debugging Techniques**
+```css
+/* Highlight all elements */
+* {
+    outline: 1px solid red;
+}
+
+/* Debug flexbox */
+.debug-flex {
+    * {
+        outline: 1px solid blue;
+    }
+
+    &::before {
+        content: 'Flex container';
+        background: yellow;
+        padding: 2px 4px;
+        font-size: 12px;
+    }
+}
+
+/* Debug grid */
+.debug-grid {
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.1) 0px,
+        rgba(0, 0, 0, 0.1) 1px,
+        transparent 1px,
+        transparent 20px
+    );
+}
+
+/* Show box model */
+.debug-box {
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid red;
+    padding: 2px;
+}
+
+/* Debug typography */
+.debug-text::after {
+    content: ' ' attr(style);
+    background: yellow;
+    font-size: 10px;
+    padding: 1px 3px;
+}
+```
+
+### **CSS Custom DevTools**
+```javascript
+// Add CSS debugging utilities to window
+window.CSSDebug = {
+    // Highlight all elements
+    highlightAll() {
+        const style = document.createElement('style');
+        style.textContent = '* { outline: 1px solid red !important; }';
+        document.head.appendChild(style);
+        this._highlightStyle = style;
+    },
+
+    // Remove highlights
+    removeHighlights() {
+        if (this._highlightStyle) {
+            document.head.removeChild(this._highlightStyle);
+            this._highlightStyle = null;
+        }
+    },
+
+    // Show computed styles
+    showComputedStyles(element) {
+        const styles = window.getComputedStyle(element);
+        console.table({
+            display: styles.display,
+            position: styles.position,
+            width: styles.width,
+            height: styles.height,
+            margin: styles.margin,
+            padding: styles.padding,
+            background: styles.background,
+            color: styles.color,
+            fontSize: styles.fontSize,
+            fontFamily: styles.fontFamily
+        });
+    },
+
+    // Toggle CSS class
+    toggleClass(element, className) {
+        element.classList.toggle(className);
+    }
+};
+```
+
+### **CSS Performance Monitoring**
+```javascript
+// Monitor CSS performance
+class CSSPerformanceMonitor {
+    constructor() {
+        this.observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                if (entry.name.includes('.css')) {
+                    console.log('CSS loaded:', entry.name, entry.duration + 'ms');
+                }
+            }
+        });
+
+        this.observer.observe({ entryTypes: ['resource'] });
+    }
+
+    // Monitor layout shifts
+    monitorLayoutShifts() {
+        let clsValue = 0;
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                if (!entry.hadRecentInput) {
+                    clsValue += entry.value;
+                }
+            }
+            console.log('Cumulative Layout Shift:', clsValue);
+        });
+
+        observer.observe({ entryTypes: ['layout-shift'] });
+        return observer;
+    }
+
+    // Monitor paint timing
+    monitorPaintTiming() {
+        const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+                console.log('Paint timing:', entry.name, entry.startTime + 'ms');
+            }
+        });
+
+        observer.observe({ entryTypes: ['paint'] });
+        return observer;
+    }
+}
+
+// Usage
+const monitor = new CSSPerformanceMonitor();
+monitor.monitorLayoutShifts();
+monitor.monitorPaintTiming();
+```
+
+## **15. Future of CSS**
+
+### **CSS Level 5 and Beyond**
+```css
+/* CSS Nesting (coming soon) */
+.card {
+    background: white;
+
+    .title {
+        font-size: 1.5rem;
+    }
+
+    &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* CSS @when/@else (coming soon) */
+@when media(width >= 768px) and supports(display: grid) {
+    .container {
+        display: grid;
+    }
+} @else {
+    .container {
+        display: flex;
+    }
+}
+
+/* CSS Trigonometric functions */
+.element {
+    width: calc(100px * sin(45deg));
+    height: calc(100px * cos(45deg));
+}
+
+/* CSS Anchor Positioning */
+.anchor-element {
+    position: absolute;
+    position-anchor: --my-anchor;
+    top: anchor(bottom);
+    left: anchor(center);
+}
+
+/* CSS Masonry Layout */
+.masonry {
+    display: grid;
+    grid-template-rows: masonry;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+```
+
+### **Modern CSS Ecosystem**
+```javascript
+// CSS with JavaScript frameworks
+import styles from './Component.module.css';
+
+// CSS-in-JS with theme support
+const theme = {
+    colors: {
+        primary: '#007bff',
+        secondary: '#6c757d',
+        success: '#28a745'
+    },
+    spacing: {
+        small: '8px',
+        medium: '16px',
+        large: '24px'
+    }
+};
+
+const styledComponent = styled.div`
+    background: ${props => props.theme.colors.primary};
+    padding: ${props => props.theme.spacing.medium};
+    border-radius: 4px;
+`;
+
+// CSS with build tools
+// webpack.config.js
+module.exports = {
+    module: {
+        rules: [
+            {
+                test: /\.css$/i,
+                use: [
+                    'style-loader',
+                    'css-loader',
+                    {
+                        loader: 'postcss-loader',
+                        options: {
+                            postcssOptions: {
+                                plugins: [
+                                    require('autoprefixer'),
+                                    require('cssnano')
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+};
+```
+
+This comprehensive CSS documentation covers everything from basic styling to advanced modern techniques, performance optimization, architecture patterns, and future CSS features. The examples are production-ready and follow current best practices for professional web development.

@@ -1276,15 +1276,1067 @@ logger.info('Application started');
 logger.error('Something went wrong');
 ```
 
-## **16. Resources**
+## **16. Advanced Node.js Patterns and Architecture**
+
+### **Microservices with Node.js**
+
+#### **Service Discovery and Communication**
+```javascript
+// Eureka client for service discovery
+const Eureka = require('eureka-js-client').Eureka;
+
+// Eureka client configuration
+const eurekaClient = new Eureka({
+    instance: {
+        app: 'user-service',
+        hostName: 'localhost',
+        ipAddr: '127.0.0.1',
+        port: {
+            '$': 3001,
+            '@enabled': true,
+        },
+        vipAddress: 'user-service',
+        dataCenterInfo: {
+            '@class': 'com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo',
+            name: 'MyOwn',
+        },
+    },
+    eureka: {
+        host: 'localhost',
+        port: 8761,
+        servicePath: '/eureka/apps/',
+    },
+});
+
+// Register with Eureka
+eurekaClient.start((error) => {
+    if (error) {
+        console.error('Failed to register with Eureka:', error);
+    } else {
+        console.log('Registered with Eureka');
+    }
+});
+
+// Service communication with circuit breaker
+const CircuitBreaker = require('opossum');
+
+async function callUserService(userId) {
+    const response = await fetch(`http://user-service/api/users/${userId}`);
+    return response.json();
+}
+
+const circuitBreaker = new CircuitBreaker(callUserService, {
+    timeout: 5000, // 5 second timeout
+    errorThresholdPercentage: 50, // Open circuit if 50% of requests fail
+    resetTimeout: 30000, // Try to close circuit after 30 seconds
+});
+
+circuitBreaker.on('open', () => console.log('Circuit breaker opened'));
+circuitBreaker.on('close', () => console.log('Circuit breaker closed'));
+
+// Usage
+try {
+    const user = await circuitBreaker.fire(userId);
+    console.log('User data:', user);
+} catch (error) {
+    console.log('Service unavailable, using fallback');
+    // Use cached data or return default response
+}
+```
+
+#### **API Gateway Pattern**
+```javascript
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+
+const app = express();
+
+// Rate limiting
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again later.'
+});
+
+app.use(limiter);
+
+// Authentication middleware
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: 'Invalid token' });
+        }
+        req.user = user;
+        next();
+    });
+}
+
+// Request logging middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        console.log(`${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`);
+    });
+    next();
+});
+
+// Service routes with proxy middleware
+const userServiceProxy = createProxyMiddleware({
+    target: 'http://localhost:3001',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/users': '/api/users', // keep the path
+    },
+    onError: (err, req, res) => {
+        console.error('User service error:', err);
+        res.status(500).json({ error: 'User service unavailable' });
+    }
+});
+
+const productServiceProxy = createProxyMiddleware({
+    target: 'http://localhost:3002',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/products': '/api/products',
+    },
+    onError: (err, req, res) => {
+        console.error('Product service error:', err);
+        res.status(500).json({ error: 'Product service unavailable' });
+    }
+});
+
+const orderServiceProxy = createProxyMiddleware({
+    target: 'http://localhost:3003',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/orders': '/api/orders',
+    },
+    onError: (err, req, res) => {
+        console.error('Order service error:', err);
+        res.status(500).json({ error: 'Order service unavailable' });
+    }
+});
+
+// Apply authentication to protected routes
+app.use('/api/users', authenticateToken, userServiceProxy);
+app.use('/api/products', productServiceProxy);
+app.use('/api/orders', authenticateToken, orderServiceProxy);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        services: {
+            user: 'http://localhost:3001/health',
+            product: 'http://localhost:3002/health',
+            order: 'http://localhost:3003/health'
+        }
+    });
+});
+
+// API documentation endpoint
+app.get('/api/docs', (req, res) => {
+    res.json({
+        title: 'API Gateway Documentation',
+        version: '1.0.0',
+        endpoints: {
+            users: '/api/users',
+            products: '/api/products',
+            orders: '/api/orders'
+        }
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`API Gateway running on port ${PORT}`);
+});
+```
+
+### **Serverless Node.js Applications**
+
+#### **AWS Lambda with Node.js**
+```javascript
+// lambda-function.js
+const AWS = require('aws-sdk');
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+exports.handler = async (event, context) => {
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
+    try {
+        const { httpMethod, path, body, pathParameters, queryStringParameters } = event;
+
+        switch (`${httpMethod} ${path}`) {
+            case 'GET /users':
+                return await getUsers(queryStringParameters);
+            case 'GET /users/{id}':
+                return await getUser(pathParameters.id);
+            case 'POST /users':
+                return await createUser(JSON.parse(body));
+            case 'PUT /users/{id}':
+                return await updateUser(pathParameters.id, JSON.parse(body));
+            case 'DELETE /users/{id}':
+                return await deleteUser(pathParameters.id);
+            default:
+                return {
+                    statusCode: 404,
+                    body: JSON.stringify({ error: 'Not Found' })
+                };
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Internal Server Error' })
+        };
+    }
+};
+
+async function getUsers(params) {
+    const { limit = 10, offset = 0 } = params;
+
+    const result = await dynamoDb.scan({
+        TableName: process.env.USERS_TABLE,
+        Limit: parseInt(limit),
+        ExclusiveStartKey: offset ? JSON.parse(offset) : undefined
+    }).promise();
+
+    return {
+        statusCode: 200,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE'
+        },
+        body: JSON.stringify({
+            users: result.Items,
+            count: result.Count,
+            lastEvaluatedKey: result.LastEvaluatedKey
+        })
+    };
+}
+
+async function createUser(userData) {
+    const user = {
+        id: Date.now().toString(),
+        ...userData,
+        createdAt: new Date().toISOString()
+    };
+
+    await dynamoDb.put({
+        TableName: process.env.USERS_TABLE,
+        Item: user
+    }).promise();
+
+    return {
+        statusCode: 201,
+        headers: {
+            'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(user)
+    };
+}
+```
+
+#### **Vercel Serverless Functions**
+```javascript
+// api/users.js
+import { connectToDatabase } from '../../lib/mongodb';
+
+export default async function handler(req, res) {
+    const { db } = await connectToDatabase();
+
+    if (req.method === 'GET') {
+        try {
+            const users = await db.collection('users').find({}).toArray();
+            res.status(200).json(users);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch users' });
+        }
+    } else if (req.method === 'POST') {
+        try {
+            const user = req.body;
+            user.createdAt = new Date();
+
+            const result = await db.collection('users').insertOne(user);
+            res.status(201).json({ ...user, _id: result.insertedId });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to create user' });
+        }
+    } else {
+        res.setHeader('Allow', ['GET', 'POST']);
+        res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+}
+
+// api/users/[id].js
+import { connectToDatabase } from '../../../lib/mongodb';
+import { ObjectId } from 'mongodb';
+
+export default async function handler(req, res) {
+    const { db } = await connectToDatabase();
+    const { id } = req.query;
+
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    if (req.method === 'GET') {
+        try {
+            const user = await db.collection('users').findOne({ _id: new ObjectId(id) });
+
+            if (!user) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            res.status(200).json(user);
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch user' });
+        }
+    } else if (req.method === 'PUT') {
+        try {
+            const updateData = { ...req.body, updatedAt: new Date() };
+
+            const result = await db.collection('users').updateOne(
+                { _id: new ObjectId(id) },
+                { $set: updateData }
+            );
+
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            res.status(200).json({ message: 'User updated successfully' });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to update user' });
+        }
+    } else if (req.method === 'DELETE') {
+        try {
+            const result = await db.collection('users').deleteOne({ _id: new ObjectId(id) });
+
+            if (result.deletedCount === 0) {
+                return res.status(404).json({ error: 'User not found' });
+            }
+
+            res.status(200).json({ message: 'User deleted successfully' });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete user' });
+        }
+    } else {
+        res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+        res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+}
+```
+
+### **GraphQL with Node.js**
+
+#### **Apollo Server Implementation**
+```javascript
+const { ApolloServer, gql } = require('apollo-server-express');
+const express = require('express');
+const mongoose = require('mongoose');
+
+const app = express();
+
+// Connect to MongoDB
+mongoose.connect('mongodb://localhost:27017/graphql-demo', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+});
+
+// User model
+const UserSchema = new mongoose.Schema({
+    name: String,
+    email: String,
+    age: Number,
+    posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }]
+});
+
+const PostSchema = new mongoose.Schema({
+    title: String,
+    content: String,
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }]
+});
+
+const CommentSchema = new mongoose.Schema({
+    text: String,
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    post: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' }
+});
+
+const User = mongoose.model('User', UserSchema);
+const Post = mongoose.model('Post', PostSchema);
+const Comment = mongoose.model('Comment', CommentSchema);
+
+// GraphQL schema
+const typeDefs = gql`
+    type User {
+        id: ID!
+        name: String!
+        email: String!
+        age: Int
+        posts: [Post!]!
+        comments: [Comment!]!
+    }
+
+    type Post {
+        id: ID!
+        title: String!
+        content: String!
+        author: User!
+        comments: [Comment!]!
+        createdAt: String!
+    }
+
+    type Comment {
+        id: ID!
+        text: String!
+        author: User!
+        post: Post!
+        createdAt: String!
+    }
+
+    type Query {
+        users: [User!]!
+        user(id: ID!): User
+        posts: [Post!]!
+        post(id: ID!): Post
+        comments: [Comment!]!
+        comment(id: ID!): Comment
+    }
+
+    type Mutation {
+        createUser(name: String!, email: String!, age: Int): User!
+        createPost(title: String!, content: String!, authorId: ID!): Post!
+        createComment(text: String!, postId: ID!, authorId: ID!): Comment!
+        updateUser(id: ID!, name: String, email: String, age: Int): User
+        deleteUser(id: ID!): Boolean!
+        deletePost(id: ID!): Boolean!
+        deleteComment(id: ID!): Boolean!
+    }
+
+    type Subscription {
+        userCreated: User!
+        postCreated: Post!
+        commentCreated: Comment!
+    }
+`;
+
+// Resolvers
+const resolvers = {
+    Query: {
+        users: async () => await User.find().populate('posts comments'),
+        user: async (_, { id }) => await User.findById(id).populate('posts comments'),
+        posts: async () => await Post.find().populate('author comments'),
+        post: async (_, { id }) => await Post.findById(id).populate('author comments'),
+        comments: async () => await Comment.find().populate('author post'),
+        comment: async (_, { id }) => await Comment.findById(id).populate('author post')
+    },
+
+    Mutation: {
+        createUser: async (_, { name, email, age }) => {
+            const user = new User({ name, email, age });
+            await user.save();
+            return user;
+        },
+
+        createPost: async (_, { title, content, authorId }) => {
+            const post = new Post({ title, content, author: authorId });
+            await post.save();
+            await post.populate('author');
+
+            // Add post to user's posts array
+            await User.findByIdAndUpdate(authorId, {
+                $push: { posts: post._id }
+            });
+
+            return post;
+        },
+
+        createComment: async (_, { text, postId, authorId }) => {
+            const comment = new Comment({ text, post: postId, author: authorId });
+            await comment.save();
+            await comment.populate('author post');
+
+            // Add comment to post's comments array
+            await Post.findByIdAndUpdate(postId, {
+                $push: { comments: comment._id }
+            });
+
+            return comment;
+        },
+
+        updateUser: async (_, { id, name, email, age }) => {
+            const updateData = {};
+            if (name !== undefined) updateData.name = name;
+            if (email !== undefined) updateData.email = email;
+            if (age !== undefined) updateData.age = age;
+
+            return await User.findByIdAndUpdate(id, updateData, { new: true });
+        },
+
+        deleteUser: async (_, { id }) => {
+            const result = await User.findByIdAndDelete(id);
+            return !!result;
+        },
+
+        deletePost: async (_, { id }) => {
+            const result = await Post.findByIdAndDelete(id);
+            return !!result;
+        },
+
+        deleteComment: async (_, { id }) => {
+            const result = await Comment.findByIdAndDelete(id);
+            return !!result;
+        }
+    }
+};
+
+// Create Apollo Server
+const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context: ({ req }) => {
+        // Add authentication context
+        const token = req.headers.authorization || '';
+        // Verify token and add user to context
+        return { user: null }; // Simplified
+    },
+    subscriptions: {
+        onConnect: (connectionParams, webSocket, context) => {
+            console.log('Client connected to subscriptions');
+        },
+        onDisconnect: (webSocket, context) => {
+            console.log('Client disconnected from subscriptions');
+        }
+    }
+});
+
+// Apply middleware
+server.applyMiddleware({ app });
+
+// Start server
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => {
+    console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
+    console.log(`🚀 Subscriptions ready at ws://localhost:${PORT}${server.subscriptionsPath}`);
+});
+```
+
+### **Real-time Applications with Socket.IO**
+
+#### **Advanced Chat Application**
+```javascript
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const Redis = require('ioredis');
+
+const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST"]
+    }
+});
+
+// Redis for scaling across multiple instances
+const redis = new Redis();
+const pubClient = redis.duplicate();
+const subClient = redis.duplicate();
+
+// Use Redis adapter for scaling
+const { createAdapter } = require('@socket.io/redis-adapter');
+io.adapter(createAdapter(pubClient, subClient));
+
+// In-memory storage (use Redis/database in production)
+const users = new Map();
+const rooms = new Map();
+const messages = new Map();
+
+// Authentication middleware
+io.use((socket, next) => {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+        return next(new Error('Authentication required'));
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        socket.userId = decoded.userId;
+        socket.username = decoded.username;
+        next();
+    } catch (error) {
+        next(new Error('Invalid token'));
+    }
+});
+
+// Connection handling
+io.on('connection', (socket) => {
+    console.log(`User ${socket.username} connected`);
+
+    // Add user to online users
+    users.set(socket.userId, {
+        id: socket.userId,
+        username: socket.username,
+        socketId: socket.id,
+        connectedAt: new Date()
+    });
+
+    // Broadcast online users
+    io.emit('online-users', Array.from(users.values()));
+
+    // Join room
+    socket.on('join-room', async (roomName) => {
+        socket.join(roomName);
+
+        // Initialize room if it doesn't exist
+        if (!rooms.has(roomName)) {
+            rooms.set(roomName, new Set());
+        }
+        rooms.get(roomName).add(socket.userId);
+
+        // Send room history
+        const roomMessages = messages.get(roomName) || [];
+        socket.emit('room-history', roomMessages);
+
+        // Notify others in room
+        socket.to(roomName).emit('user-joined', {
+            userId: socket.userId,
+            username: socket.username,
+            message: `${socket.username} joined the room`
+        });
+
+        console.log(`${socket.username} joined room: ${roomName}`);
+    });
+
+    // Leave room
+    socket.on('leave-room', (roomName) => {
+        socket.leave(roomName);
+
+        if (rooms.has(roomName)) {
+            rooms.get(roomName).delete(socket.userId);
+
+            // Clean up empty rooms
+            if (rooms.get(roomName).size === 0) {
+                rooms.delete(roomName);
+            }
+        }
+
+        socket.to(roomName).emit('user-left', {
+            userId: socket.userId,
+            username: socket.username,
+            message: `${socket.username} left the room`
+        });
+    });
+
+    // Send message
+    socket.on('send-message', async (data) => {
+        const { room, message, type = 'text' } = data;
+
+        const messageData = {
+            id: Date.now().toString(),
+            userId: socket.userId,
+            username: socket.username,
+            message,
+            type,
+            timestamp: new Date(),
+            room
+        };
+
+        // Store message in room history
+        if (!messages.has(room)) {
+            messages.set(room, []);
+        }
+        messages.get(room).push(messageData);
+
+        // Keep only last 100 messages per room
+        if (messages.get(room).length > 100) {
+            messages.get(room).shift();
+        }
+
+        // Broadcast to room
+        io.to(room).emit('receive-message', messageData);
+    });
+
+    // Private messaging
+    socket.on('private-message', (data) => {
+        const { targetUserId, message } = data;
+        const targetUser = users.get(targetUserId);
+
+        if (targetUser) {
+            const privateMessage = {
+                id: Date.now().toString(),
+                from: socket.userId,
+                to: targetUserId,
+                message,
+                timestamp: new Date()
+            };
+
+            // Send to target user
+            io.to(targetUser.socketId).emit('private-message', privateMessage);
+
+            // Send confirmation to sender
+            socket.emit('private-message-sent', privateMessage);
+        } else {
+            socket.emit('error', { message: 'User not found' });
+        }
+    });
+
+    // Typing indicators
+    socket.on('typing-start', (room) => {
+        socket.to(room).emit('user-typing', {
+            userId: socket.userId,
+            username: socket.username
+        });
+    });
+
+    socket.on('typing-stop', (room) => {
+        socket.to(room).emit('user-stop-typing', {
+            userId: socket.userId
+        });
+    });
+
+    // File sharing
+    socket.on('send-file', (data) => {
+        const { room, fileName, fileData, fileType } = data;
+
+        const fileMessage = {
+            id: Date.now().toString(),
+            userId: socket.userId,
+            username: socket.username,
+            fileName,
+            fileData,
+            fileType,
+            type: 'file',
+            timestamp: new Date(),
+            room
+        };
+
+        io.to(room).emit('receive-file', fileMessage);
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+        console.log(`User ${socket.username} disconnected`);
+
+        // Remove from online users
+        users.delete(socket.userId);
+
+        // Remove from all rooms
+        for (const [roomName, roomUsers] of rooms.entries()) {
+            roomUsers.delete(socket.userId);
+
+            // Notify others in room
+            socket.to(roomName).emit('user-left', {
+                userId: socket.userId,
+                username: socket.username,
+                message: `${socket.username} left the room`
+            });
+
+            // Clean up empty rooms
+            if (roomUsers.size === 0) {
+                rooms.delete(roomName);
+            }
+        }
+
+        // Broadcast updated online users
+        io.emit('online-users', Array.from(users.values()));
+    });
+});
+
+// REST API for additional functionality
+app.get('/api/rooms', (req, res) => {
+    const roomList = Array.from(rooms.entries()).map(([name, users]) => ({
+        name,
+        userCount: users.size,
+        users: Array.from(users).map(userId => users.get(userId))
+    }));
+
+    res.json(roomList);
+});
+
+app.get('/api/online-users', (req, res) => {
+    res.json(Array.from(users.values()));
+});
+
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+    console.log(`Real-time chat server running on port ${PORT}`);
+});
+```
+
+### **Containerization and Orchestration**
+
+#### **Docker for Node.js Applications**
+```dockerfile
+# Multi-stage Dockerfile for Node.js
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Rebuild the source code only when needed
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production image, copy all the files and run next
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+
+# Create a non-root user
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nodejs
+
+# Copy the built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# Change ownership
+RUN chown -R nodejs:nodejs /app
+USER nodejs
+
+EXPOSE 3000
+
+ENV PORT 3000
+
+CMD ["npm", "start"]
+```
+
+#### **Docker Compose for Multi-Service Applications**
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://user:password@db:5432/app
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    driver: bridge
+```
+
+### **Performance Optimization and Monitoring**
+
+#### **Application Performance Monitoring**
+```javascript
+const express = require('express');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
+const responseTime = require('response-time');
+const promClient = require('prom-client');
+const { collectDefaultMetrics } = require('prom-client');
+
+const app = express();
+const server = createServer(app);
+
+// Prometheus metrics
+collectDefaultMetrics();
+
+// Custom metrics
+const httpRequestDuration = new promClient.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in seconds',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [0.1, 0.5, 1, 2, 5, 10]
+});
+
+const activeConnections = new promClient.Gauge({
+    name: 'active_connections',
+    help: 'Number of active connections'
+});
+
+const cacheHits = new promClient.Counter({
+    name: 'cache_hits_total',
+    help: 'Total number of cache hits'
+});
+
+const cacheMisses = new promClient.Counter({
+    name: 'cache_misses_total',
+    help: 'Total number of cache misses'
+});
+
+// Response time middleware
+app.use(responseTime((req, res, time) => {
+    const route = req.route ? req.route.path : req.path;
+    httpRequestDuration
+        .labels(req.method, route, res.statusCode.toString())
+        .observe(time / 1000);
+}));
+
+// Metrics endpoint
+app.get('/metrics', async (req, res) => {
+    try {
+        res.set('Content-Type', promClient.register.contentType);
+        res.end(await promClient.register.metrics());
+    } catch (ex) {
+        res.status(500).end(ex);
+    }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.version
+    });
+});
+
+// Application routes
+app.get('/', (req, res) => {
+    res.json({ message: 'Hello World!' });
+});
+
+app.get('/api/users', async (req, res) => {
+    try {
+        // Simulate database query
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 100));
+
+        // Simulate cache hit/miss
+        if (Math.random() > 0.7) {
+            cacheHits.inc();
+        } else {
+            cacheMisses.inc();
+        }
+
+        res.json([
+            { id: 1, name: 'John Doe' },
+            { id: 2, name: 'Jane Smith' }
+        ]);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// WebSocket monitoring
+const io = new Server(server);
+let connectionCount = 0;
+
+io.on('connection', (socket) => {
+    connectionCount++;
+    activeConnections.set(connectionCount);
+
+    socket.on('disconnect', () => {
+        connectionCount--;
+        activeConnections.set(connectionCount);
+    });
+
+    socket.on('message', (data) => {
+        // Handle message
+        socket.emit('response', { received: data });
+    });
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('Process terminated');
+    });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Metrics available at http://localhost:${PORT}/metrics`);
+});
+```
+
+## **17. Resources**
 
 - [Node.js Official Documentation](https://nodejs.org/en/docs/)
 - [Express.js](https://expressjs.com/)
 - [NPM Documentation](https://docs.npmjs.com/)
 - [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
 - [The Node.js Way](https://github.com/FredKSchott/the-node-way)
+- [Microservices with Node.js](https://microservices.io/)
+- [Docker for Node.js](https://nodejs.org/en/docs/guides/nodejs-docker-webapp/)
+- [Kubernetes for Node.js](https://kubernetes.io/docs/concepts/containers/)
 
-## **17. Next Steps**
+## **18. Next Steps**
 
 In the next lesson, we'll explore Express.js, a popular web framework for Node.js. You'll learn about:
 - Routing and middleware
@@ -1295,3 +2347,5 @@ In the next lesson, we'll explore Express.js, a popular web framework for Node.j
 Practice building Node.js servers and experiment with different modules to strengthen your backend development skills!
 
 ---
+
+This comprehensive Node.js documentation covers everything from basic server creation to advanced patterns like microservices, serverless, GraphQL, real-time applications, containerization, and performance monitoring. The examples are production-ready and follow current best practices for professional Node.js development.

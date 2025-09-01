@@ -1,0 +1,48 @@
+{
+  "name": "fullstack-dev-notes",
+  "version": "1.0.0",
+  "description": "The most comprehensive full-stack web development guide with production-ready code examples",
+  "main": "explore.js",
+  "scripts": {
+    "explore": "node explore.js",
+    "start": "node explore.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "fullstack",
+    "web-development",
+    "javascript",
+    "react",
+    "node.js",
+    "mongodb",
+    "tutorial",
+    "guide",
+    "learning",
+    "programming"
+  ],
+  "author": "btwitchell",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btwitchell/fullstack-dev-notes.git"
+  },
+  "bugs": {
+    "url": "https://github.com/btwitchell/fullstack-dev-notes/issues"
+  },
+  "homepage": "https://github.com/btwitchell/fullstack-dev-notes#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {},
+  "directories": {
+    "doc": "."
+  },
+  "files": [
+    "lessons/",
+    "guides/",
+    "resources/",
+    "README.md",
+    "explore.js"
+  ]
+}
