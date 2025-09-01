@@ -2260,14 +2260,30 @@ app.use((req, res, next) => {
 
 ## **14. Resources**
 
-- [JWT.io](https://jwt.io/) - JWT debugger and library
+### **📖 Documentation & Guides**
+- [JWT Documentation](https://jwt.io/) - JWT debugger and library
+- [OWASP Security Basics](https://owasp.org/www-project-top-ten/) - Web application security fundamentals
 - [OAuth 2.0](https://oauth.net/2/) - OAuth specification
 - [OpenID Connect](https://openid.net/connect/) - OpenID Connect specification
+
+### **🎥 Video Tutorials**
+- [Auth Crash Course – Traversy Media](https://www.youtube.com/watch?v=) - Complete authentication tutorial
+- [JWT Authentication Tutorial](https://www.youtube.com/watch?v=) - JWT implementation guide
+- [OAuth 2.0 Explained](https://www.youtube.com/watch?v=) - OAuth workflow tutorial
+
+### **📗 Project Ideas & Examples**
+- **Login System**: Build a complete user authentication system
+- **JWT Auth**: Implement JWT-based authentication with refresh tokens
+- **Google OAuth**: Social login integration with Google
+- **Multi-Factor Authentication**: Add MFA to existing applications
+- **Role-Based Access Control**: Implement RBAC for different user types
+
+### **🛠️ Libraries & Tools**
 - [Passport.js](http://www.passportjs.org/) - Authentication middleware
 - [bcrypt](https://www.npmjs.com/package/bcrypt) - Password hashing
 - [speakeasy](https://www.npmjs.com/package/speakeasy) - TOTP implementation
 - [helmet](https://helmetjs.github.io/) - Security headers
-- [OWASP](https://owasp.org/) - Web application security
+- [express-rate-limit](https://www.npmjs.com/package/express-rate-limit) - Rate limiting
 
 ## **15. Next Steps**
 

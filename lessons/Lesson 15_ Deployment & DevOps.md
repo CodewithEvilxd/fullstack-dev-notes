@@ -1585,12 +1585,34 @@ app.get('/metrics', async (req, res) => {
 
 ## **18. Resources**
 
-- [Terraform Documentation](https://www.terraform.io/docs)
-- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Helm Documentation](https://helm.sh/docs/)
-- [Prometheus Documentation](https://prometheus.io/docs/)
-- [Grafana Documentation](https://grafana.com/docs/)
+### **📖 Documentation & Guides**
+- [Docker Docs](https://docs.docker.com/) - Complete Docker documentation
+- [Heroku Deployment Guide](https://devcenter.heroku.com/) - Heroku deployment tutorials
+- [Vercel & Netlify Docs](https://vercel.com/docs) - Modern deployment platforms
+- [Terraform Documentation](https://www.terraform.io/docs) - Infrastructure as Code
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/) - AWS infrastructure
+- [Kubernetes Documentation](https://kubernetes.io/docs/) - Container orchestration
+
+### **🎥 Video Tutorials**
+- [CI/CD Basics – freeCodeCamp](https://www.youtube.com/watch?v=) - Complete CI/CD tutorial
+- [Docker Tutorial for Beginners](https://www.youtube.com/watch?v=) - Docker fundamentals
+- [Heroku Deployment Guide](https://www.youtube.com/watch?v=) - Cloud deployment
+- [Kubernetes Crash Course](https://www.youtube.com/watch?v=) - K8s basics
+
+### **📗 Project Ideas & Examples**
+- **Docker Containerization**: Containerize a Node.js application
+- **CI/CD Pipeline**: Set up automated deployment with GitHub Actions
+- **Heroku Deployment**: Deploy a full-stack app to Heroku
+- **Vercel Deployment**: Deploy a React app with Vercel
+- **Infrastructure as Code**: Create AWS infrastructure with Terraform
+- **Kubernetes Orchestration**: Deploy microservices to K8s
+
+### **🛠️ Tools & Platforms**
+- [Helm Documentation](https://helm.sh/docs/) - Kubernetes package manager
+- [Prometheus Documentation](https://prometheus.io/docs/) - Monitoring system
+- [Grafana Documentation](https://grafana.com/docs/) - Visualization platform
+- [Jenkins](https://www.jenkins.io/) - CI/CD automation server
+- [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) - Integrated DevOps platform
 
 ## **19. Next Steps**
 
