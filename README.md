@@ -23,9 +23,9 @@ This guide covers everything from basic HTML/CSS to advanced enterprise patterns
 
 ### For Beginners
 If you're new to web development, start here:
-1. **[Lesson 0: Computer Basics](lessons/Lesson%200_%20Computer%20Basics.md)** - Understanding your development environment
-2. **[Lesson 1: Introduction to Web Development](lessons/Lesson%201_%20Introduction%20to%20Web%20Development.md)** - What is web development?
-3. **[Lesson 2: HTML Basics](lessons/Lesson%202_%20HTML%20Basics.md)** - Building your first webpage
+1. **[Lesson 00: Computer Basics](lessons/Lesson%2000_%20Computer%20Basics.md)** - Understanding your development environment
+2. **[Lesson 01: Introduction to Web Development](lessons/Lesson%2001_%20Introduction%20to%20Web%20Development.md)** - What is web development?
+3. **[Lesson 02: HTML Basics](lessons/Lesson%2002_%20HTML%20Basics.md)** - Building your first webpage
 
 ### For Experienced Developers
 Jump to advanced topics:
@@ -40,26 +40,26 @@ Jump to advanced topics:
 ### Phase 1: Foundations 🏗️
 | # | Topic | File | Difficulty | Est. Time |
 |---|-------|------|------------|-----------|
-| 0 | Computer Basics | [Lesson 0](lessons/Lesson%200_%20Computer%20Basics.md) | Beginner | 1 hour |
-| 0.5 | Internet Concepts | [Lesson 0.5](lessons/Lesson%200.5_%20Internet%20Concepts.md) | Beginner | 2 hours |
-| 0.75 | Git & GitHub | [Lesson 0.75](lessons/Lesson%200.75_%20Git%20and%20GitHub.md) | Beginner | 3 hours |
-| 1 | Web Dev Intro | [Lesson 1](lessons/Lesson%201_%20Introduction%20to%20Web%20Development.md) | Beginner | 2 hours |
-| 2 | HTML Basics | [Lesson 2](lessons/Lesson%202_%20HTML%20Basics.md) | Beginner | 4 hours |
-| 3 | CSS Basics | [Lesson 3](lessons/Lesson%203_%20CSS%20Basics.md) | Beginner | 6 hours |
-| 4 | JavaScript Basics | [Lesson 4](lessons/Lesson%204_%20JavaScript%20Basics.md) | Intermediate | 8 hours |
+| 0 | Computer Basics | [Lesson 00](lessons/Lesson%2000_%20Computer%20Basics.md) | Beginner | 1 hour |
+| 0.5 | Internet Concepts | [Lesson 00.5](lessons/Lesson%2000.5_%20Internet%20Concepts.md) | Beginner | 2 hours |
+| 0.75 | Git & GitHub | [Lesson 00.75](lessons/Lesson%2000.75_%20Git%20and%20GitHub.md) | Beginner | 3 hours |
+| 1 | Web Dev Intro | [Lesson 01](lessons/Lesson%2001_%20Introduction%20to%20Web%20Development.md) | Beginner | 2 hours |
+| 2 | HTML Basics | [Lesson 02](lessons/Lesson%2002_%20HTML%20Basics.md) | Beginner | 4 hours |
+| 3 | CSS Basics | [Lesson 03](lessons/Lesson%2003_%20CSS%20Basics.md) | Beginner | 6 hours |
+| 4 | JavaScript Basics | [Lesson 04](lessons/Lesson%2004_%20JavaScript%20Basics.md) | Intermediate | 8 hours |
 
 ### Phase 2: Backend Development ⚙️
 | # | Topic | File | Difficulty | Est. Time |
 |---|-------|------|------------|-----------|
-| 5 | Node.js & Backend | [Lesson 5](lessons/Lesson%205_%20Backend%20Development%20and%20Node.js.md) | Intermediate | 6 hours |
-| 6 | Express.js | [Lesson 6](lessons/Lesson%206_%20Express.js.md) | Intermediate | 8 hours |
-| 7 | Databases & MongoDB | [Lesson 7](lessons/Lesson%207_%20Databases%20and%20MongoDB.md) | Intermediate | 8 hours |
-| 8 | Mongoose ODM | [Lesson 8](lessons/Lesson%208_%20Mongoose.md) | Intermediate | 6 hours |
+| 5 | Node.js & Backend | [Lesson 05](lessons/Lesson%2005_%20Backend%20Development%20and%20Node.js.md) | Intermediate | 6 hours |
+| 6 | Express.js | [Lesson 06](lessons/Lesson%2006_%20Express.js.md) | Intermediate | 8 hours |
+| 7 | Databases & MongoDB | [Lesson 07](lessons/Lesson%2007_%20Databases%20and%20MongoDB.md) | Intermediate | 8 hours |
+| 8 | Mongoose ODM | [Lesson 08](lessons/Lesson%2008_%20Mongoose.md) | Intermediate | 6 hours |
 
 ### Phase 3: Frontend Frameworks ⚛️
 | # | Topic | File | Difficulty | Est. Time |
 |---|-------|------|------------|-----------|
-| 9 | React Basics | [Lesson 9](lessons/Lesson%209_%20React%20Basics.md) | Intermediate | 8 hours |
+| 9 | React Basics | [Lesson 09](lessons/Lesson%2009_%20React%20Basics.md) | Intermediate | 8 hours |
 | 10 | React Hooks | [Lesson 10](lessons/Lesson%2010_%20React%20Hooks.md) | Intermediate | 6 hours |
 | 11 | React Router | [Lesson 11](lessons/Lesson%2011_%20React%20Router.md) | Intermediate | 4 hours |
 | 12 | Redux State Management | [Lesson 12](lessons/Lesson%2012_%20Redux.md) | Advanced | 8 hours |
@@ -85,18 +85,18 @@ Jump to advanced topics:
 ```
 fullstack-dev-notes/
 ├── lessons/                    # Main learning curriculum
-│   ├── Lesson 0_ Computer Basics.md
-│   ├── Lesson 0.5_ Internet Concepts.md
-│   ├── Lesson 0.75_ Git and GitHub.md
-│   ├── Lesson 1_ Introduction to Web Development.md
-│   ├── Lesson 2_ HTML Basics.md
-│   ├── Lesson 3_ CSS Basics.md
-│   ├── Lesson 4_ JavaScript Basics.md
-│   ├── Lesson 5_ Backend Development and Node.js.md
-│   ├── Lesson 6_ Express.js.md
-│   ├── Lesson 7_ Databases and MongoDB.md
-│   ├── Lesson 8_ Mongoose.md
-│   ├── Lesson 9_ React Basics.md
+│   ├── Lesson 00_ Computer Basics.md
+│   ├── Lesson 00.5_ Internet Concepts.md
+│   ├── Lesson 00.75_ Git and GitHub.md
+│   ├── Lesson 01_ Introduction to Web Development.md
+│   ├── Lesson 02_ HTML Basics.md
+│   ├── Lesson 03_ CSS Basics.md
+│   ├── Lesson 04_ JavaScript Basics.md
+│   ├── Lesson 05_ Backend Development and Node.js.md
+│   ├── Lesson 06_ Express.js.md
+│   ├── Lesson 07_ Databases and MongoDB.md
+│   ├── Lesson 08_ Mongoose.md
+│   ├── Lesson 09_ React Basics.md
 │   ├── Lesson 10_ React Hooks.md
 │   ├── Lesson 11_ React Router.md
 │   ├── Lesson 12_ Redux.md
@@ -164,7 +164,7 @@ cd fullstack-dev-notes
 ```
 
 ### 2. Set Up Your Development Environment
-Follow **[Lesson 0: Computer Basics](lessons/Lesson%200_%20Computer%20Basics.md)** to set up your development environment.
+Follow **[Lesson 00: Computer Basics](lessons/Lesson%2000_%20Computer%20Basics.md)** to set up your development environment.
 
 ### 3. Start Learning
 Begin with the learning path above, starting from Lesson 0 if you're new to programming.
@@ -307,7 +307,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🎉 Let's Get Started!
 
-Ready to become a full-stack developer? Start with [Lesson 0: Computer Basics](lessons/Lesson%200_%20Computer%20Basics.md) and begin your journey!
+Ready to become a full-stack developer? Start with [Lesson 00: Computer Basics](lessons/Lesson%2000_%20Computer%20Basics.md) and begin your journey!
 
 **Happy coding! 🚀**
 

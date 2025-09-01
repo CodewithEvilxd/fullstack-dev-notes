@@ -51,13 +51,13 @@ class GuideExplorer {
           'Lesson 4: JavaScript Basics'
         ],
         files: [
-          'Lesson 0_ Computer Basics.md',
-          'Lesson 0.5_ Internet Concepts.md',
-          'Lesson 0.75_ Git and GitHub.md',
-          'Lesson 1_ Introduction to Web Development.md',
-          'Lesson 2_ HTML Basics.md',
-          'Lesson 3_ CSS Basics.md',
-          'Lesson 4_ JavaScript Basics.md'
+          'Lesson 00_ Computer Basics.md',
+          'Lesson 00.5_ Internet Concepts.md',
+          'Lesson 00.75_ Git and GitHub.md',
+          'Lesson 01_ Introduction to Web Development.md',
+          'Lesson 02_ HTML Basics.md',
+          'Lesson 03_ CSS Basics.md',
+          'Lesson 04_ JavaScript Basics.md'
         ]
       },
       {
@@ -69,10 +69,10 @@ class GuideExplorer {
           'Lesson 8: Mongoose'
         ],
         files: [
-          'Lesson 5_ Backend Development and Node.js.md',
-          'Lesson 6_ Express.js.md',
-          'Lesson 7_ Databases and MongoDB.md',
-          'Lesson 8_ Mongoose.md'
+          'Lesson 05_ Backend Development and Node.js.md',
+          'Lesson 06_ Express.js.md',
+          'Lesson 07_ Databases and MongoDB.md',
+          'Lesson 08_ Mongoose.md'
         ]
       },
       {
@@ -84,7 +84,7 @@ class GuideExplorer {
           'Lesson 12: Redux'
         ],
         files: [
-          'Lesson 9_ React Basics.md',
+          'Lesson 09_ React Basics.md',
           'Lesson 10_ React Hooks.md',
           'Lesson 11_ React Router.md',
           'Lesson 12_ Redux.md'
