@@ -20,11 +20,11 @@
 
 ### 📈 **Repository Statistics**
 
-![GitHub Repo stars](https://img.shields.io/github/stars/btwitchell/fullstack-dev-notes?style=social)
-![GitHub forks](https://img.shields.io/github/forks/btwitchell/fullstack-dev-notes?style=social)
-![GitHub watchers](https://img.shields.io/github/watchers/btwitchell/fullstack-dev-notes?style=social)
-![GitHub repo size](https://img.shields.io/github/repo-size/btwitchell/fullstack-dev-notes?style=flat-square)
-![GitHub last commit](https://img.shields.io/github/last-commit/btwitchell/fullstack-dev-notes?style=flat-square)
+![GitHub Repo stars](https://img.shields.io/github/stars/CodewithEvilxd/fullstack-dev-notes?style=social)
+![GitHub forks](https://img.shields.io/github/forks/CodewithEvilxd/fullstack-dev-notes?style=social)
+![GitHub watchers](https://img.shields.io/github/watchers/CodewithEvilxd/fullstack-dev-notes?style=social)
+![GitHub repo size](https://img.shields.io/github/repo-size/CodewithEvilxd/fullstack-dev-notes?style=flat-square)
+![GitHub last commit](https://img.shields.io/github/last-commit/CodewithEvilxd/fullstack-dev-notes?style=flat-square)
 
 </div>
 
@@ -225,7 +225,7 @@ flowchart TD
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/btwitchell/fullstack-dev-notes.git
+git clone https://github.com/CodewithEvilxd/fullstack-dev-notes.git
 cd fullstack-dev-notes
 
 # 2. Explore the curriculum
@@ -426,11 +426,11 @@ flowchart TD
 
 | 📈 **Metric** | 📊 **Count** | 🎯 **Status** |
 |---------------|--------------|---------------|
-| ⭐ **Stars** | ![GitHub Repo stars](https://img.shields.io/github/stars/btwitchell/fullstack-dev-notes?style=flat) | Community Interest |
-| 🍴 **Forks** | ![GitHub forks](https://img.shields.io/github/forks/btwitchell/fullstack-dev-notes?style=flat) | Code Adoption |
-| 👁️ **Watchers** | ![GitHub watchers](https://img.shields.io/github/watchers/btwitchell/fullstack-dev-notes?style=flat) | Active Community |
-| 📝 **Commits** | ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/CodewithEvilxd/fullstack-app-dev-handbook?style=flat) | Development Activity |
-| 📊 **Contributors** | ![GitHub contributors](https://img.shields.io/github/contributors/btwitchell/fullstack-dev-notes?style=flat) | Community Collaboration |
+| ⭐ **Stars** | ![GitHub Repo stars](https://img.shields.io/github/stars/CodewithEvilxd/fullstack-dev-notes?style=flat) | Community Interest |
+| 🍴 **Forks** | ![GitHub forks](https://img.shields.io/github/forks/CodewithEvilxd/fullstack-dev-notes?style=flat) | Code Adoption |
+| 👁️ **Watchers** | ![GitHub watchers](https://img.shields.io/github/watchers/CodewithEvilxd/fullstack-dev-notes?style=flat) | Active Community |
+| 📝 **Commits** | ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/CodewithEvilxd/fullstack-dev-notes?style=flat) | Development Activity |
+| 📊 **Contributors** | ![GitHub contributors](https://img.shields.io/github/contributors/CodewithEvilxd/fullstack-dev-notes?style=flat) | Community Collaboration |
 
 </div>
 
@@ -533,7 +533,7 @@ npm run explore
 | 📧 **Contact** | 🌐 **Resources** | 💬 **Community** | ☕ **Support** |
 |----------------|------------------|------------------|---------------|
 | [📧 Email](mailto:btwitchell@example.com) | [📚 Documentation](#) | [💬 Discord](#) | [☕ Buy Me Coffee](#) |
-| [🐙 GitHub](https://github.com/btwitchell) | [🎥 YouTube](#) | [🐦 Twitter](#) | [❤️ Sponsor](#) |
+| [🐙 GitHub](https://github.com/CodewithEvilxd) | [🎥 YouTube](#) | [🐦 Twitter](#) | [❤️ Sponsor](#) |
 | [💼 LinkedIn](#) | [📱 Instagram](#) | [🌐 Website](#) | [💝 Donate](#) |
 
 </div>
@@ -542,7 +542,7 @@ npm run explore
 
 <div align="center">
 
-[![Profile Views](https://komarev.com/ghpvc/?username=btwitchell&repo=fullstack-dev-notes&color=blue&style=flat-square)](https://github.com/btwitchell/fullstack-dev-notes)
+[![Profile Views](https://komarev.com/ghpvc/?username=CodewithEvilxd&repo=fullstack-dev-notes&color=blue&style=flat-square)](https://github.com/CodewithEvilxd/fullstack-dev-notes)
 
 **Repository Views Counter**
 
