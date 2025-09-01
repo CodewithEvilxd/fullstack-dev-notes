@@ -304,9 +304,9 @@ code lessons/Lesson\ 00_\ Computer\ Basics.md
 | 10 | 🎣 **React Hooks** | useState, useEffect, Custom Hooks, Lifecycle | 🔥 Advanced | `5-6h` | ✅ Complete |
 | 11 | 🧭 **React Router** | Client-side Routing, Navigation, Protected Routes | 🔥 Advanced | `4-5h` | ✅ Complete |
 | 12 | 🔄 **Redux** | State Management, Actions, Reducers, Middleware | 🔥 Advanced | `6-7h` | ✅ Complete |
-| 13 | 🔐 **Authentication & Authorization** | JWT, OAuth, Sessions, Role-based Access | 🔥 Advanced | `7-8h` | ✅ Complete |
+| 13 | 🔐 **Authentication & Security** | JWT Documentation, OWASP Security Basics, Auth Crash Course – Traversy Media, Project Ideas: Login System, JWT Auth, Google OAuth | 🔥 Advanced | `7-8h` | ✅ Complete |
 | 14 | 🧪 **Testing** | Unit, Integration, E2E Testing, Jest, Cypress | 🔥 Advanced | `6-7h` | ✅ Complete |
-| 15 | 🚀 **Deployment & DevOps** | Docker, CI/CD, Cloud Platforms, Monitoring | 🔥 Advanced | `8-9h` | ✅ Complete |
+| 15 | 🚀 **DevOps & Deployment** | Docker Docs, Heroku Deployment Guide, Vercel & Netlify Docs, CI/CD Basics – freeCodeCamp | 🔥 Advanced | `8-9h` | ✅ Complete |
 | 16 | 🗺️ **Full-Stack Roadmap** | Project Planning, Architecture, Best Practices | 👑 Expert | `5-6h` | ✅ Complete |
 | 17 | 🔗 **API Design & GraphQL** | REST API Design, GraphQL Implementation | 👑 Expert | `6-7h` | ✅ Complete |
 | 18 | 💬 **Real-Time Applications** | WebSockets, Socket.io, Real-time Features | 👑 Expert | `5-6h` | ✅ Complete |
